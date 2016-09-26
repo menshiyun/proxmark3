@@ -1404,7 +1404,7 @@ void  __attribute__((noreturn)) AppMain(void)
 
   byte_t rx[sizeof(UsbCommand)];
 	size_t rx_len;
-  
+  FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	for(;;) {
     if (usb_poll()) {
       rx_len = usb_read(rx,sizeof(UsbCommand));
