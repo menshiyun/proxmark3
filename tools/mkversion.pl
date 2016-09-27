@@ -23,9 +23,10 @@ $fullgitinfo =~ s/(\s)//g;
 # Crop so it fits within 50 characters
 $fullgitinfo =~ s/.{50}\K.*//s;
 
-$compiletime[4] += 1;
-$compiletime[5] += 1900;
-my $ctime = sprintf("%6\$04i-%5\$02i-%4\$02i %3\$02i:%2\$02i:%1\$02i", @compiletime);
+use POSIX;
+my $tz = strftime("%z", @compiletime);
+$tz =~ s/(\d{2})(\d{2})/$1:$2/;
+my $ctime =  strftime("%Y-%m-%dT%H:%M:%S", @compiletime) . $tz;
 
 
 print <<EOF
