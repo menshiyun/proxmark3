@@ -1,3 +1,4 @@
+
 1.Download & Install
 (1)MSYS2
 http://repo.msys2.org/distrib/i686/msys2-i686-20160921.exe
