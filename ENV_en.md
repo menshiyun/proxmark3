@@ -52,3 +52,7 @@ copy follwing file in "...\mingw49_32\bin\\..." to "...\proxmark\client\\..."
 >Qt5Core.dll  
 Qt5Gui.dll  
 Qt5Widgets.dll
+
+copy follwing file in "...\mingw49_32\plugins\platforms\\..." to "...\proxmark\client\platforms\\..."
+
+>qwindows.dll

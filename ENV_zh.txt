@@ -52,3 +52,6 @@ libwinpthread-1.dll
 Qt5Core.dll
 Qt5Gui.dll
 Qt5Widgets.dll
+
+把以下文件从 "...\mingw49_32\plugins\platforms\..." 复制到 "...\proxmark\client\platforms\..."
+qwindows.dll
