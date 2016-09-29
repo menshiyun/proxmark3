@@ -27,12 +27,20 @@ Start mingw32.exe in the MSYS2 installation directory.
 (Or in the start menu to find "MSYS2 32bit\MSYS2 MinGW 32-bit")
 Then run the following command.
 pacman -Syu
-pacman -S make perl mingw-w64-i686-gcc mingw-w64-i686-readline
+pacman -S git make perl mingw-w64-i686-gcc mingw-w64-i686-readline
 
-4.Make
+4.Clone my folk
+(Default save to the current directory. Maybe it was "...\home\<YourName>".)
+git clone https://github.com/menshiyun/proxmark3.git
+cd proxmark3
+git checkout -b local origin/local
+(My branch named "local")
+
+5.Clean and Compile
+make clean && make all
 
 (Optional)
-5.Run client without the MSYS2
+Run client without the MSYS2
 
 copy follwing file in "...\msys32\mingw32\bin\..." to "...\proxmark\client\..."
 libgcc_s_dw2-1.dll

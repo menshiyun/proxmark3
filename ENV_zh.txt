@@ -26,12 +26,20 @@ export PATH=$PATH:$DEVKITARM/bin
 （或者在开始菜单中找到"MSYS2 32bit\MSYS2 MinGW 32-bit"）
 然后运行以下命令。
 pacman -Syu
-pacman -S make perl mingw-w64-i686-gcc mingw-w64-i686-readline
+pacman -S git make perl mingw-w64-i686-gcc mingw-w64-i686-readline
 
-4.编译
+4.克隆代码库到本地
+（默认储存到当前目录。也许是"...\home\<你的名字>"。）
+git clone https://github.com/menshiyun/proxmark3.git
+cd proxmark3
+git checkout -b local origin/local
+（我的分支名字是"local"）
+
+5.清理和编译
+make clean && make all
 
 (可选)
-5.不用MSYS2运行客户端
+不用MSYS2运行客户端
 
 把以下文件从 "...\msys32\mingw32\bin\..." 复制到 "...\proxmark\client\..."
 libgcc_s_dw2-1.dll
