@@ -30,7 +30,7 @@ pacman -Syu
 pacman -S git make perl mingw-w64-i686-gcc mingw-w64-i686-readline
 
 4.Clone my folk
-(Default save to the current directory. Maybe it was "...\home\<YourName>".)
+(Default save to the current directory. Maybe it was "...\home\<YourName>")
 git clone https://github.com/menshiyun/proxmark3.git
 cd proxmark3
 git checkout -b local origin/local

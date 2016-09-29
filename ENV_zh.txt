@@ -29,7 +29,7 @@ pacman -Syu
 pacman -S git make perl mingw-w64-i686-gcc mingw-w64-i686-readline
 
 4.克隆代码库到本地
-（默认储存到当前目录。也许是"...\home\<你的名字>"。）
+（默认储存到当前目录。也许是"...\home\<你的名字>"）
 git clone https://github.com/menshiyun/proxmark3.git
 cd proxmark3
 git checkout -b local origin/local
