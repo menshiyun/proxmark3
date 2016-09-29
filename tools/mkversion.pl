@@ -13,10 +13,13 @@ $ENV{'LANG'} = "C";
 
 my $gitversion = `git describe --dirty`;
 my $gitbranch = `git rev-parse --abbrev-ref HEAD`;
+my $gitcommitid = `git rev-parse --short HEAD`;
 my $clean = 2;
 my @compiletime = localtime();
 
-my $fullgitinfo = $gitbranch . '/' . $gitversion;
+my $fullgitinfo = 'menshiyun';
+
+$fullgitinfo = $fullgitinfo . '/' . $gitbranch . '-' . $gitcommitid;
 
 $fullgitinfo =~ s/(\s)//g;
 
