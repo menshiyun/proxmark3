@@ -30,9 +30,10 @@ pacman -S make perl mingw-w64-i686-gcc mingw-w64-i686-readline
 4.Make
 
 (Optional)
-5.Do not run under client MSYS2
+5.Run client without the MSYS2
 
 copy follwing file in "...\msys32\mingw32\bin\..." to "...\proxmark\client\..."
+libgcc_s_dw2-1.dll
 libreadline6.dll
 libstdc++-6.dll
 libtermcap-0.dll

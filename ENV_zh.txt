@@ -29,9 +29,10 @@ pacman -S make perl mingw-w64-i686-gcc mingw-w64-i686-readline
 4.编译
 
 (可选)
-5.不在MSYS2下运行客户端
+5.不用MSYS2运行客户端
 
 把以下文件从 "...\msys32\mingw32\bin\..." 复制到 "...\proxmark\client\..."
+libgcc_s_dw2-1.dll
 libreadline6.dll
 libstdc++-6.dll
 libtermcap-0.dll
