@@ -21,7 +21,7 @@
 
 static serial_port sp;
 static char* serial_port_name;
-/*
+
 void cmd_debug(UsbCommand* UC) {
   //  Debug
   printf("UsbCommand length[len=%zd]\n",sizeof(UsbCommand));
@@ -35,7 +35,7 @@ void cmd_debug(UsbCommand* UC) {
   }
   printf("...\n");
 }
-*/
+
 void SendCommand(UsbCommand* txcmd) {
 //  printf("send: ");
 //  cmd_debug(txcmd);
