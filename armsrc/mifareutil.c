@@ -509,7 +509,7 @@ int mifare_classic_halt(struct Crypto1State *pcs, uint32_t uid)
 	uint8_t receivedAnswerPar[MAX_MIFARE_PARITY_SIZE];
 
 	len = mifare_sendcmd_short(pcs, pcs == NULL ? false:true, 0x50, 0x00, receivedAnswer, receivedAnswerPar, NULL);
-	if (len != 0) {
+	if (len != 0 && receivedAnswer[0]!=0x04) {
 		if (MF_DBGLEVEL >= MF_DBG_ERROR)
 			Dbprintf("halt error. response len: %x", len);  
 		return 1;

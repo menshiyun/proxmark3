@@ -17,7 +17,7 @@ my $gitcommitid = `git rev-parse --short HEAD`;
 my $clean = 2;
 my @compiletime = localtime();
 
-my $fullgitinfo = 'menshiyun';
+my $fullgitinfo = 'men';
 
 $fullgitinfo = $fullgitinfo . '/' . $gitbranch . '-' . $gitcommitid;
 
