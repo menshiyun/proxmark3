@@ -14,7 +14,7 @@ $ENV{'LANG'} = "C";
 my $gitversion = `git describe --dirty`;
 my $gitbranch = `git rev-parse --abbrev-ref HEAD`;
 my $gitcommitid = `git rev-parse --short HEAD`;
-my $clean = 1;
+my $clean = $gitversion=~'-dirty'?0:1;
 my @compiletime = localtime();
 
 my $fullgitinfo = 'men';
