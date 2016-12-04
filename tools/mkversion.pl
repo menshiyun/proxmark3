@@ -14,12 +14,12 @@ $ENV{'LANG'} = "C";
 my $gitversion = `git describe --dirty`;
 my $gitbranch = `git rev-parse --abbrev-ref HEAD`;
 my $gitcommitid = `git rev-parse --short HEAD`;
-my $clean = 2;
+my $clean = 1;
 my @compiletime = localtime();
 
 my $fullgitinfo = 'men';
 
-$fullgitinfo = $fullgitinfo . '/' . $gitbranch . '-' . $gitcommitid;
+$fullgitinfo = $fullgitinfo . '-' . $gitbranch . '-' . $gitcommitid;
 
 $fullgitinfo =~ s/(\s)//g;
 
@@ -29,7 +29,7 @@ $fullgitinfo =~ s/.{50}\K.*//s;
 use POSIX;
 my $tz = strftime("%z", @compiletime);
 $tz =~ s/(\d{2})(\d{2})/$1:$2/;
-my $ctime =  strftime("%Y-%m-%dT%H:%M:%S", @compiletime) . $tz;
+my $ctime =  strftime("%Y-%m-%d %H:%M:%S", @compiletime) . $tz;
 
 
 print <<EOF
