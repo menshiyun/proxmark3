@@ -28,7 +28,7 @@ Then run the following command.
 >pacman -Syu  
 pacman -S git make perl mingw-w64-i686-gcc mingw-w64-i686-readline
 
-##4.Clone my folk
+##4.Clone my fork
 (Default save to the current directory. Maybe it was "...\home\\< YourName >")
 >git clone https://github.com/menshiyun/proxmark3.git  
 cd proxmark3  
