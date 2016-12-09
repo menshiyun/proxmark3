@@ -794,7 +794,7 @@ prev(poly_t *poly) {
 		}
 
 		/* claim remaining bits of last word (as we use public function pshift()) */
-		poly->length = fulllength;
+	poly->length = fulllength;
 
 	/* reverse and swap words in the array, leaving it right-justified */
 	while(leftidx < rightidx) {
