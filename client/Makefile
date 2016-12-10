@@ -117,7 +117,7 @@ CMDSRCS = 	nonce2key/crapto1.c\
 			reveng/getopt.c\
 
 ZLIBSRCS = deflate.c adler32.c trees.c zutil.c inflate.c inffast.c inftrees.c
-ZLIB_FLAGS = -DZ_SOLO -DZ_PREFIX -DNO_GZIP -DZLIB_PM3_TUNED 
+ZLIB_FLAGS = -DZ_SOLO -DZ_PREFIX -DNO_GZIP -DZLIB_PM3_TUNED -DLUA_COMPAT_APIINTCASTS
 #-DDEBUG -Dverbose=1
 
 
