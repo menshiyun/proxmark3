@@ -5,9 +5,11 @@
 // the license.
 //-----------------------------------------------------------------------------
 // Low frequency Presco tag commands
+// ASK/Manchester, rf/32, 128 bits (complete)
 //-----------------------------------------------------------------------------
 #include <string.h>
 #include <inttypes.h>
+#include <stdio.h>
 #include "cmdlfpresco.h"
 #include "proxmark3.h"
 #include "ui.h"
@@ -128,7 +130,7 @@ int CmdPrescoDemod(const char *Cmd) {
 		return 0;
 	}
 	size_t size = DemodBufferLen;
-	//call lfdemod.c demod for Viking
+	//call lfdemod.c demod for presco
 	int ans = PrescoDemod(DemodBuffer, &size);
 	if (ans < 0) {
 		if (g_debugMode) PrintAndLog("Error Presco_Demod %d", ans);
@@ -159,9 +161,7 @@ int CmdPrescoRead(const char *Cmd) {
 	// Presco Number: 123456789 --> Sitecode 30 | usercode 8665
 
 	// read lf silently
-	CmdLFRead("s");
-	// get samples silently
-	getSamples("30000",false);
+	lf_read(true, 10000);
 	// demod and output Presco ID	
 	return CmdPrescoDemod(Cmd);
 }
@@ -178,7 +178,7 @@ int CmdPrescoClone(const char *Cmd) {
 	if (GetWiegandFromPresco(Cmd, &sitecode, &usercode, &fullcode, &Q5) == -1) return usage_lf_presco_clone();
 
 	if (Q5)
-		blocks[0] = T5555_MODULATION_MANCHESTER | 32<<T5555_BITRATE_SHIFT | 4<<T5555_MAXBLOCK_SHIFT | T5555_ST_TERMINATOR;
+		blocks[0] = T5555_MODULATION_MANCHESTER | ((32-2)>>1)<<T5555_BITRATE_SHIFT | 4<<T5555_MAXBLOCK_SHIFT | T5555_ST_TERMINATOR;
 
 	if ((sitecode & 0xFF) != sitecode) {
 		sitecode &= 0xFF;

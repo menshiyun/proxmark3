@@ -340,7 +340,7 @@ static void hitag2_handle_reader_command(byte_t* rx, const size_t rxlen, byte_t*
 				
 				// Unknown command
 				default:
-					Dbprintf("Uknown command: %02x %02x",rx[0],rx[1]);
+					Dbprintf("Unknown command: %02x %02x",rx[0],rx[1]);
 					return;
 				break;
 			}
@@ -993,7 +993,7 @@ void SimulateHitagTag(bool tag_mem_supplied, byte_t* data) {
 	
 	// Set up simulator mode, frequency divisor which will drive the FPGA
 	// and analog mux selection.
-	FpgaWriteConfWord(FPGA_MAJOR_MODE_LF_EDGE_DETECT | FPGA_LF_EDGE_DETECT_READER_FIELD);
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_LF_EDGE_DETECT);
 	FpgaSendCommand(FPGA_CMD_SET_DIVISOR, 95); //125Khz
 	SetAdcMuxFor(GPIO_MUXSEL_LOPKD);
 	RELAY_OFF();
@@ -1450,6 +1450,6 @@ void ReaderHitag(hitag_function htf, hitag_data* htd) {
 	AT91C_BASE_TC0->TC_CCR = AT91C_TC_CLKDIS;
 	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
 	//Dbprintf("frame received: %d",frame_count);
-  //DbpString("All done");
-  cmd_send(CMD_ACK,bSuccessful,0,0,(byte_t*)tag.sectors,48);
+	//DbpString("All done");
+	cmd_send(CMD_ACK,bSuccessful,0,0,(byte_t*)tag.sectors,48);
 }

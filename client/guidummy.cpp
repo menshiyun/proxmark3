@@ -1,28 +1,27 @@
 //-----------------------------------------------------------------------------
-// Copyright (C) 2010 iZsh <izsh at fail0verflow.com>
+// Copyright (C) 2009 Michael Gernoth <michael at gernoth.net>
 //
 // This code is licensed to you under the terms of the GNU GPL, version 2 or,
 // at your option, any later version. See the LICENSE.txt file for the text of
 // the license.
 //-----------------------------------------------------------------------------
-// platform-independant sleep macros
+// GUI dummy file
 //-----------------------------------------------------------------------------
 
-#ifndef _WIN32
-
-#define _POSIX_C_SOURCE	199309L
-#include "sleep.h"
-#include <time.h>
 #include <stdio.h>
-#include <sys/time.h>
-#include <errno.h>
 
-void nsleep(uint64_t n) {
-  struct timespec timeout;
-  timeout.tv_sec = n/1000000000;
-  timeout.tv_nsec = n%1000000000;
-  while (nanosleep(&timeout, &timeout) && errno == EINTR);
+extern "C" void ShowGraphWindow(void)
+{
+	static int warned = 0;
+
+	if (!warned) {
+		printf("No GUI in this build!\n");
+		warned = 1;
+	}
 }
 
-#endif // _WIN32
-
+extern "C" void HideGraphWindow(void) {}
+extern "C" void RepaintGraphWindow(void) {}
+extern "C" void MainGraphics() {}
+extern "C" void InitGraphics(int argc, char **argv) {}
+extern "C" void ExitGraphics(void) {}

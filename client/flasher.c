@@ -9,8 +9,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "sleep.h"
+#include <inttypes.h>
 #include "proxmark3.h"
+#include "util.h"
 #include "flash.h"
 #include "uart.h"
 #include "usb_cmd.h"
@@ -25,10 +26,10 @@ static char* serial_port_name;
 void cmd_debug(UsbCommand* UC) {
   //  Debug
   printf("UsbCommand length[len=%zd]\n",sizeof(UsbCommand));
-  printf("  cmd[len=%zd]: %016"llx"\n",sizeof(UC->cmd),UC->cmd);
-  printf(" arg0[len=%zd]: %016"llx"\n",sizeof(UC->arg[0]),UC->arg[0]);
-  printf(" arg1[len=%zd]: %016"llx"\n",sizeof(UC->arg[1]),UC->arg[1]);
-  printf(" arg2[len=%zd]: %016"llx"\n",sizeof(UC->arg[2]),UC->arg[2]);
+  printf("  cmd[len=%zd]: %016" PRIx64 "\n",sizeof(UC->cmd),UC->cmd);
+  printf(" arg0[len=%zd]: %016" PRIx64 "\n",sizeof(UC->arg[0]),UC->arg[0]);
+  printf(" arg1[len=%zd]: %016" PRIx64 "\n",sizeof(UC->arg[1]),UC->arg[1]);
+  printf(" arg2[len=%zd]: %016" PRIx64 "\n",sizeof(UC->arg[2]),UC->arg[2]);
   printf(" data[len=%zd]: ",sizeof(UC->d.asBytes));
   for (size_t i=0; i<16; i++) {
     printf("%02x",UC->d.asBytes[i]);

@@ -12,14 +12,13 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
 #include <readline/readline.h>
 #include <pthread.h>
 
 #include "ui.h"
 
 double CursorScaleFactor;
-int PlotGridX, PlotGridY, PlotGridXdefault= 64, PlotGridYdefault= 64;
+int PlotGridX, PlotGridY, PlotGridXdefault= 64, PlotGridYdefault= 64, CursorCPos= 0, CursorDPos= 0;
 int offline;
 int flushAfterWrite = 0;  //buzzy
 extern pthread_mutex_t print_lock;
@@ -34,7 +33,7 @@ void PrintAndLog(char *fmt, ...)
 	static FILE *logfile = NULL;
 	static int logging=1;
 
-	// lock this section to avoid interlacing prints from different threats
+	// lock this section to avoid interlacing prints from different threads
 	pthread_mutex_lock(&print_lock);
   
 	if (logging && !logfile) {
