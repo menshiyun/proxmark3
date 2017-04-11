@@ -8,13 +8,26 @@
 // utilities
 //-----------------------------------------------------------------------------
 
+#if !defined(_WIN32)
+#define _POSIX_C_SOURCE	199309L			// need nanosleep()
+#endif
+
 #include "util.h"
+
+#include <stdint.h>
+#include <string.h>
+#include <ctype.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <time.h>
+#include "data.h"
+
 #define MAX_BIN_BREAK_LENGTH   (3072+384+1)
 
 #ifndef _WIN32
 #include <termios.h>
 #include <sys/ioctl.h> 
-
+#include <unistd.h>
 
 int ukbhit(void)
 {
@@ -22,25 +35,25 @@ int ukbhit(void)
   int error;
   static struct termios Otty, Ntty;
 
-
-  if ( tcgetattr( 0, &Otty) == -1 ) return -1;
+  if ( tcgetattr(STDIN_FILENO, &Otty) == -1 ) return -1;
   Ntty = Otty;
 
-  Ntty.c_iflag          = 0;       /* input mode                */
-  Ntty.c_oflag          = 0;       /* output mode               */
-  Ntty.c_lflag         &= ~ICANON; /* raw mode */
-  Ntty.c_cc[VMIN]       = CMIN;    /* minimum time to wait      */
-  Ntty.c_cc[VTIME]      = CTIME;   /* minimum characters to wait for */
-
-  if (0 == (error = tcsetattr(0, TCSANOW, &Ntty))) {
-    error += ioctl(0, FIONREAD, &cnt);
-    error += tcsetattr(0, TCSANOW, &Otty);
+  Ntty.c_iflag          = 0x0000;   // input mode
+  Ntty.c_oflag          = 0x0000;   // output mode
+  Ntty.c_lflag         &= ~ICANON;  // control mode = raw
+  Ntty.c_cc[VMIN]       = 1;        // return if at least 1 character is in the queue
+  Ntty.c_cc[VTIME]      = 0;   	    // no timeout. Wait forever
+  
+  if (0 == (error = tcsetattr(STDIN_FILENO, TCSANOW, &Ntty))) {   // set new attributes
+    error += ioctl(STDIN_FILENO, FIONREAD, &cnt);                 // get number of characters availabe
+    error += tcsetattr(STDIN_FILENO, TCSANOW, &Otty);             // reset attributes
   }
 
   return ( error == 0 ? cnt : -1 );
 }
 
 #else
+
 #include <conio.h>
 int ukbhit(void) {
 	return kbhit();
@@ -110,6 +123,23 @@ void print_hex(const uint8_t * data, const size_t len)
 	printf("\n");
 }
 
+void print_hex_break(const uint8_t *data, const size_t len, uint8_t breaks) {
+
+	int rownum = 0;
+	printf("[%02d] | ", rownum);
+	for (int i = 0; i < len; ++i) {
+
+		printf("%02X ", data[i]);
+		
+		// check if a line break is needed
+		if ( breaks > 0 && !((i+1) % breaks) && (i+1 < len) ) {
+			++rownum;
+			printf("\n[%02d] | ", rownum);
+		}
+	}
+	printf("\n");
+}
+
 char *sprint_hex(const uint8_t *data, const size_t len) {
 	
 	int maxLen = ( len > 1024/3) ? 1024/3 : len;
@@ -144,7 +174,7 @@ char *sprint_bin_break(const uint8_t *data, const size_t len, const uint8_t brea
 		if (data[in_index]<10)
 			sprintf(tmp++, "%u", (unsigned int) data[in_index]);
 		// check if a line break is needed and we have room to print it in our array
-		if ( (breaks > 0) && !((in_index+1) % breaks) && (out_index+1 != max_len) ) {
+		if ( (breaks > 0) && !((in_index+1) % breaks) && (out_index+1 < max_len) ) {
 			// increment and print line break
 			out_index++;
 			sprintf(tmp++, "%s","\n");
@@ -158,6 +188,41 @@ char *sprint_bin_break(const uint8_t *data, const size_t len, const uint8_t brea
 char *sprint_bin(const uint8_t *data, const size_t len) {
 	return sprint_bin_break(data, len, 0);
 }
+
+char *sprint_hex_ascii(const uint8_t *data, const size_t len) {
+	static char buf[1024];
+	char *tmp = buf;
+	memset(buf, 0x00, 1024);
+	size_t max_len = (len > 1010) ? 1010 : len;
+
+	sprintf(tmp, "%s| ", sprint_hex(data, max_len) );
+	
+	size_t i = 0;
+	size_t pos = (max_len * 3)+2;
+	while(i < max_len){
+		char c = data[i];
+		if ( (c < 32) || (c == 127))
+			c = '.';
+		sprintf(tmp+pos+i, "%c",  c);
+		++i;
+	}
+	return buf;
+}
+
+char *sprint_ascii(const uint8_t *data, const size_t len) {
+	static char buf[1024];
+	char *tmp = buf;
+	memset(buf, 0x00, 1024);
+	size_t max_len = (len > 1010) ? 1010 : len;
+	size_t i = 0;
+	while(i < max_len){
+		char c = data[i];
+		tmp[i] = ((c < 32) || (c == 127)) ? '.' : c;
+		++i;
+	}
+	return buf;
+}
+
 void num_to_bytes(uint64_t n, size_t len, uint8_t* dest)
 {
 	while (len--) {
@@ -184,6 +249,24 @@ void num_to_bytebits(uint64_t	n, size_t len, uint8_t *dest) {
 	}
 }
 
+//least significant bit first
+void num_to_bytebitsLSBF(uint64_t n, size_t len, uint8_t *dest) {
+	for(int i = 0 ; i < len ; ++i) {
+		dest[i] =  n & 1;
+		n >>= 1;
+	}
+}
+
+// Swap bit order on a uint32_t value.  Can be limited by nrbits just use say 8bits reversal
+// And clears the rest of the bits.
+uint32_t SwapBits(uint32_t value, int nrbits) {
+	uint32_t newvalue = 0;
+	for(int i = 0; i < nrbits; i++) {
+		newvalue ^= ((value >> i) & 1) << (nrbits - 1 - i);
+	}
+	return newvalue;
+}
+
 // aa,bb,cc,dd,ee,ff,gg,hh, ii,jj,kk,ll,mm,nn,oo,pp
 // to
 // hh,gg,ff,ee,dd,cc,bb,aa, pp,oo,nn,mm,ll,kk,jj,ii
@@ -198,6 +281,16 @@ uint8_t *SwapEndian64(const uint8_t *src, const size_t len, const uint8_t blockS
 		}
 	}
 	return tmp;
+}
+
+// takes a uint8_t src array, for len items and reverses the byte order in blocksizes (8,16,32,64), 
+// returns: the dest array contains the reordered src array.
+void SwapEndian64ex(const uint8_t *src, const size_t len, const uint8_t blockSize, uint8_t *dest){
+	for (uint8_t block=0; block < (uint8_t)(len/blockSize); block++){
+		for (size_t i = 0; i < blockSize; i++){
+			dest[i+(blockSize*block)] = src[(blockSize-1-i)+(blockSize*block)];
+		}
+	}
 }
 
 //assumes little endian
@@ -332,8 +425,6 @@ uint64_t param_get64ex(const char *line, int paramnum, int deflt, int base)
 		return strtoull(&line[bg], NULL, base);
 	else
 		return deflt;
-
-	return 0;
 }
 
 int param_gethex(const char *line, int paramnum, uint8_t * data, int hexcnt)
@@ -490,6 +581,7 @@ void wiegand_add_parity(uint8_t *target, uint8_t *source, uint8_t length)
     *(target)= GetParity(source + length / 2, ODD, length / 2);
 }
 
+// xor two arrays together for len items.  The dst array contains the new xored values.
 void xor(unsigned char *dst, unsigned char *src, size_t len) {
    for( ; len > 0; len--,dst++,src++)
        *dst ^= *src;
@@ -510,4 +602,57 @@ void rol(uint8_t *data, const size_t len){
         data[i] = data[i+1];
     }
     data[len-1] = first;
+}
+
+
+// Replace unprintable characters with a dot in char buffer
+void clean_ascii(unsigned char *buf, size_t len) {
+  for (size_t i = 0; i < len; i++) {
+    if (!isprint(buf[i]))
+      buf[i] = '.';
+  }
+}
+
+
+// Timer functions
+#if !defined (_WIN32)
+#include <errno.h>
+
+static void nsleep(uint64_t n) {
+  struct timespec timeout;
+  timeout.tv_sec = n/1000000000;
+  timeout.tv_nsec = n%1000000000;
+  while (nanosleep(&timeout, &timeout) && errno == EINTR);
+}
+
+void msleep(uint32_t n) {
+	nsleep(1000000 * n);
+}
+
+#endif // _WIN32
+
+// a milliseconds timer for performance measurement
+uint64_t msclock() {
+#if defined(_WIN32)
+    #include <sys/types.h>
+    
+    // WORKAROUND FOR MinGW (some versions - use if normal code does not compile)
+    // It has no _ftime_s and needs explicit inclusion of timeb.h
+    #include <sys/timeb.h>
+    struct _timeb t;
+    _ftime(&t);
+    return 1000 * t.time + t.millitm;
+    
+    // NORMAL CODE (use _ftime_s)
+	//struct _timeb t;
+    //if (_ftime_s(&t)) {
+	//	return 0;
+	//} else {
+	//	return 1000 * t.time + t.millitm;
+	//}
+#else
+	struct timespec t;
+	clock_gettime(CLOCK_MONOTONIC, &t);
+	return (t.tv_sec * 1000 + t.tv_nsec / 1000000);
+#endif
 }

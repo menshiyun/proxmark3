@@ -14,6 +14,7 @@
 #include "ui.h"
 #include "graph.h"
 #include "lfdemod.h"
+#include "cmddata.h" //for g_debugmode
 
 int GraphBuffer[MAX_GRAPH_TRACE_LEN];
 int GraphTraceLen;
@@ -149,7 +150,7 @@ int GetAskClock(const char str[], bool printAns, bool verbose)
 		start = DetectASKClock(grph, size, &clock, 20);
 	}
 	// Only print this message if we're not looping something
-	if (printAns) {
+	if (printAns || g_debugMode) {
 		PrintAndLog("Auto-detected clock rate: %d, Best Starting Position: %d", clock, start);
 	}
 	return clock;
@@ -165,11 +166,12 @@ uint8_t GetPskCarrier(const char str[], bool printAns, bool verbose)
 			PrintAndLog("Failed to copy from graphbuffer");
 		return 0;
 	}
-	//uint8_t countPSK_FC(uint8_t *BitStream, size_t size)
-
-	carrier = countFC(grph,size,0);
+	uint16_t fc = countFC(grph,size,0);
+	carrier = fc & 0xFF;
+	if (carrier != 2 && carrier != 4 && carrier != 8) return 0;
+	if ((fc>>8) == 10 && carrier == 8) return 0;
 	// Only print this message if we're not looping something
-	if (printAns){
+	if (printAns) {
 		PrintAndLog("Auto-detected PSK carrier rate: %d", carrier);
 	}
 	return carrier;
@@ -192,7 +194,9 @@ int GetPskClock(const char str[], bool printAns, bool verbose)
 			PrintAndLog("Failed to copy from graphbuffer");
 		return -1;
 	}
-	clock = DetectPSKClock(grph,size,0);
+	size_t firstPhaseShiftLoc = 0;
+	uint8_t curPhase = 0, fc = 0;
+	clock = DetectPSKClock(grph, size, 0, &firstPhaseShiftLoc, &curPhase, &fc);
 	// Only print this message if we're not looping something
 	if (printAns){
 		PrintAndLog("Auto-detected clock rate: %d", clock);
@@ -217,7 +221,8 @@ uint8_t GetNrzClock(const char str[], bool printAns, bool verbose)
 			PrintAndLog("Failed to copy from graphbuffer");
 		return -1;
 	}
-	clock = DetectNRZClock(grph, size, 0);
+	size_t clkStartIdx = 0;
+	clock = DetectNRZClock(grph, size, 0, &clkStartIdx);
 	// Only print this message if we're not looping something
 	if (printAns){
 		PrintAndLog("Auto-detected clock rate: %d", clock);
@@ -255,7 +260,7 @@ uint8_t fskClocks(uint8_t *fc1, uint8_t *fc2, uint8_t *rf1, bool verbose)
 	if (size==0) return 0;
 	uint16_t ans = countFC(BitStream, size, 1); 
 	if (ans==0) {
-		if (verbose) PrintAndLog("DEBUG: No data found");
+		if (verbose || g_debugMode) PrintAndLog("DEBUG: No data found");
 		return 0;
 	}
 	*fc1 = (ans >> 8) & 0xFF;
@@ -263,8 +268,18 @@ uint8_t fskClocks(uint8_t *fc1, uint8_t *fc2, uint8_t *rf1, bool verbose)
 
 	*rf1 = detectFSKClk(BitStream, size, *fc1, *fc2);
 	if (*rf1==0) {
-		if (verbose) PrintAndLog("DEBUG: Clock detect error");
+		if (verbose || g_debugMode) PrintAndLog("DEBUG: Clock detect error");
 		return 0;
 	}
 	return 1;
+}
+bool graphJustNoise(int *BitStream, int size)
+{
+	static const uint8_t THRESHOLD = 15; //might not be high enough for noisy environments
+	//test samples are not just noise
+	bool justNoise1 = 1;
+	for(int idx=0; idx < size && justNoise1 ;idx++){
+		justNoise1 = BitStream[idx] < THRESHOLD;
+	}
+	return justNoise1;
 }

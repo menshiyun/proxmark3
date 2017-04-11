@@ -1,27 +1,14 @@
 //-----------------------------------------------------------------------------
-// Copyright (C) 2009 Michael Gernoth <michael at gernoth.net>
 //
 // This code is licensed to you under the terms of the GNU GPL, version 2 or,
 // at your option, any later version. See the LICENSE.txt file for the text of
 // the license.
 //-----------------------------------------------------------------------------
-// GUI dummy file
+// Low frequency G Prox II tag commands
 //-----------------------------------------------------------------------------
-
-#include <stdio.h>
-
-void ShowGraphWindow(void)
-{
-	static int warned = 0;
-
-	if (!warned) {
-		printf("No GUI in this build!\n");
-		warned = 1;
-	}
-}
-
-void HideGraphWindow(void) {}
-void RepaintGraphWindow(void) {}
-void MainGraphics() {}
-void InitGraphics(int argc, char **argv) {}
-void ExitGraphics(void) {}
+#ifndef CMDLFGPROXII_H__
+#define CMDLFGPROXII_H__
+extern int CmdLF_G_Prox_II(const char *Cmd);
+extern int CmdG_Prox_II_Demod(const char *Cmd);
+extern int CmdG_Prox_II_Read(const char *Cmd);
+#endif
