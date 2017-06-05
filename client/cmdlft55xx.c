@@ -419,23 +419,23 @@ bool DecodeT55xxBlock(){
 			break;
 		case DEMOD_PSK1:
 			// skip first 160 samples to allow antenna to settle in (psk gets inverted occasionally otherwise)
-			save_restoreGB(1);
+			save_restoreGB(GRAPH_SAVE);
 			CmdLtrim("160");
 			snprintf(cmdStr, sizeof(buf),"%d %d 6", bitRate[config.bitrate], config.inverted );
 			ans = PSKDemod(cmdStr, false);
 			//undo trim samples
-			save_restoreGB(0);
+			save_restoreGB(GRAPH_RESTORE);
 			break;
 		case DEMOD_PSK2: //inverted won't affect this
 		case DEMOD_PSK3: //not fully implemented
 			// skip first 160 samples to allow antenna to settle in (psk gets inverted occasionally otherwise)
-			save_restoreGB(1);
+			save_restoreGB(GRAPH_SAVE);
 			CmdLtrim("160");
 			snprintf(cmdStr, sizeof(buf),"%d 0 6", bitRate[config.bitrate] );
 			ans = PSKDemod(cmdStr, false);
 			psk1TOpsk2(DemodBuffer, DemodBufferLen);
 			//undo trim samples
-			save_restoreGB(0);
+			save_restoreGB(GRAPH_RESTORE);
 			break;
 		case DEMOD_NRZ:
 			snprintf(cmdStr, sizeof(buf),"%d %d 1", bitRate[config.bitrate], config.inverted );
@@ -507,8 +507,8 @@ bool tryDetectModulation(){
 	t55xx_conf_block_t tests[15];
 	int bitRate=0;
 	uint8_t fc1 = 0, fc2 = 0, ans = 0;
-	int clk=0;
-	ans = fskClocks(&fc1, &fc2, (uint8_t *)&clk, false);
+	int clk = 0, firstClockEdge = 0;
+	ans = fskClocks(&fc1, &fc2, (uint8_t *)&clk, false, &firstClockEdge);
 	if (ans && ((fc1==10 && fc2==8) || (fc1==8 && fc2==5))) {
 		if ( FSKrawDemod("0 0", false) && test(DEMOD_FSK, &tests[hits].offset, &bitRate, clk, &tests[hits].Q5)) {
 			tests[hits].modulation = DEMOD_FSK;
@@ -594,7 +594,7 @@ bool tryDetectModulation(){
 		clk = GetPskClock("", false, false);
 		if (clk>0) {
 			// allow undo
-			save_restoreGB(1);
+			save_restoreGB(GRAPH_SAVE);
 			// skip first 160 samples to allow antenna to settle in (psk gets inverted occasionally otherwise)
 			CmdLtrim("160");
 			if ( PSKDemod("0 0 6", false) && test(DEMOD_PSK1, &tests[hits].offset, &bitRate, clk, &tests[hits].Q5)) {
@@ -638,7 +638,7 @@ bool tryDetectModulation(){
 				}
 			} // inverse waves does not affect this demod
 			//undo trim samples
-			save_restoreGB(0);
+			save_restoreGB(GRAPH_RESTORE);
 		}
 	}	
 	if ( hits == 1) {
@@ -1555,7 +1555,7 @@ bool tryDetectP1(bool getData) {
 	uint8_t preamble[] = {1,1,1,0,0,0,0,0,0,0,0,1,0,1,0,1};
 	size_t startIdx = 0;
 	uint8_t fc1 = 0, fc2 = 0, ans = 0;
-	int clk = 0;
+	int clk = 0, firstClockEdge = 0;
 	bool st = true;
 
 	if ( getData ) {
@@ -1564,7 +1564,7 @@ bool tryDetectP1(bool getData) {
 	}
 
 	// try fsk clock detect. if successful it cannot be any other type of modulation...  (in theory...)
-	ans = fskClocks(&fc1, &fc2, (uint8_t *)&clk, false);
+	ans = fskClocks(&fc1, &fc2, (uint8_t *)&clk, false, &firstClockEdge);
 	if (ans && ((fc1==10 && fc2==8) || (fc1==8 && fc2==5))) {
 		if ( FSKrawDemod("0 0", false) && 
 			  preambleSearchEx(DemodBuffer,preamble,sizeof(preamble),&DemodBufferLen,&startIdx,false) && 

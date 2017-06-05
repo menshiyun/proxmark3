@@ -20,7 +20,7 @@ LDLIBS = -L/opt/local/lib -L/usr/local/lib -lreadline -lpthread -lm
 LUALIB = ../liblua/liblua.a
 LDFLAGS = $(COMMON_FLAGS)
 CFLAGS = -std=c99 -D_ISOC99_SOURCE -I. -I../include -I../common -I../zlib -I/opt/local/include -I../liblua -Wall $(COMMON_FLAGS) -g -O3
-CXXFLAGS = -std=c++11 -fPIC -Wall -O3
+CXXFLAGS = -I../include -Wall -O3
 
 LUAPLATFORM = generic
 platform = $(shell uname)
@@ -40,11 +40,15 @@ endif
 QTINCLUDES = $(shell pkg-config --cflags Qt5Core Qt5Widgets 2>/dev/null)
 QTLDLIBS = $(shell pkg-config --libs Qt5Core Qt5Widgets 2>/dev/null)
 MOC = $(shell pkg-config --variable=host_bins Qt5Core)/moc
+UIC = $(shell pkg-config --variable=host_bins Qt5Core)/uic
 ifeq ($(QTINCLUDES), )
-# if Qt5 not found Check for correctly configured Qt4	
+# if Qt5 not found check for correctly configured Qt4	
 	QTINCLUDES = $(shell pkg-config --cflags QtCore QtGui 2>/dev/null)
 	QTLDLIBS = $(shell pkg-config --libs QtCore QtGui 2>/dev/null)
 	MOC = $(shell pkg-config --variable=moc_location QtCore)
+	UIC = $(shell pkg-config --variable=uic_location QtCore)
+else
+	CXXFLAGS += -std=c++11 -fPIC
 endif
 ifeq ($(QTINCLUDES), )
 # if both pkg-config commands failed, search in common places
@@ -54,8 +58,10 @@ ifeq ($(QTINCLUDES), )
 		ifneq ($(wildcard $(QTDIR)/include/QtWidgets),)
 			QTINCLUDES += -I$(QTDIR)/include/QtWidgets
 			QTLDLIBS = -L$(QTDIR)/lib -lQt5Widgets -lQt5Gui -lQt5Core
+			CXXFLAGS += -std=c++11 -fPIC
 		endif
 		MOC = $(QTDIR)/bin/moc
+		UIC = $(QTDIR)/bin/uic
 	endif
 endif
 
@@ -106,6 +112,8 @@ CMDSRCS = 	crapto1/crapto1.c\
 			cmdhficlass.c \
 			cmdhfmf.c \
 			cmdhfmfu.c \
+			cmdhfmfhard.c \
+			hardnested/hardnested_bruteforce.c \
 			cmdhftopaz.c \
 			cmdhw.c \
 			cmdlf.c \
@@ -147,6 +155,8 @@ CMDSRCS = 	crapto1/crapto1.c\
 			reveng/poly.c\
 			reveng/getopt.c\
 
+MULTIARCHSRCS = hardnested/hardnested_bf_core.c hardnested/hardnested_bitarray_core.c
+
 ZLIBSRCS = deflate.c adler32.c trees.c zutil.c inflate.c inffast.c inftrees.c
 ZLIBFLAGS = -DZ_SOLO -DZ_PREFIX -DNO_GZIP -DZLIB_PM3_TUNED -DLUA_COMPAT_APIINTCASTS
 #-DDEBUG -Dverbose=1
@@ -156,19 +166,26 @@ QTGUISRCS = proxgui.cpp proxguiqt.cpp proxguiqt.moc.cpp guidummy.cpp
 COREOBJS = $(CORESRCS:%.c=$(OBJDIR)/%.o)
 CMDOBJS = $(CMDSRCS:%.c=$(OBJDIR)/%.o)
 ZLIBOBJS = $(ZLIBSRCS:%.c=$(OBJDIR)/%.o)
-
+MULTIARCHOBJS = $(MULTIARCHSRCS:%.c=$(OBJDIR)/%_NOSIMD.o) \
+			$(MULTIARCHSRCS:%.c=$(OBJDIR)/%_MMX.o) \
+			$(MULTIARCHSRCS:%.c=$(OBJDIR)/%_SSE2.o) \
+			$(MULTIARCHSRCS:%.c=$(OBJDIR)/%_AVX.o) \
+			$(MULTIARCHSRCS:%.c=$(OBJDIR)/%_AVX2.o) \
+			$(MULTIARCHSRCS:%.c=$(OBJDIR)/%_AVX512.o)
+			
 BINS = proxmark3 flasher fpga_compress
 WINBINS = $(patsubst %, %.exe, $(BINS))
-CLEAN = $(BINS) $(WINBINS) $(COREOBJS) $(CMDOBJS) $(ZLIBOBJS) $(QTGUIOBJS) $(OBJDIR)/*.o *.moc.cpp
+CLEAN = $(BINS) $(WINBINS) $(COREOBJS) $(CMDOBJS) $(ZLIBOBJS) $(QTGUIOBJS) $(MULTIARCHOBJS) $(OBJDIR)/*.o *.moc.cpp ui/ui_overlays.h
 
-all: lua_build $(BINS)
+# need to assign dependancies to build these first...
+all: ui/ui_overlays.h lua_build $(BINS)
 
 all-static: LDLIBS:=-static $(LDLIBS)
 all-static: proxmark3 flasher fpga_compress
 
 proxmark3: LDLIBS+=$(LUALIB) $(QTLDLIBS)
-proxmark3: $(OBJDIR)/proxmark3.o $(COREOBJS) $(CMDOBJS) $(QTGUIOBJS) lualibs/usb_cmd.lua
-	$(LD) $(LDFLAGS) $(OBJDIR)/proxmark3.o $(COREOBJS) $(CMDOBJS) $(QTGUIOBJS) $(LDLIBS) -o $@
+proxmark3: $(OBJDIR)/proxmark3.o $(COREOBJS) $(CMDOBJS) $(QTGUIOBJS) $(MULTIARCHOBJS) lualibs/usb_cmd.lua
+	$(LD) $(LDFLAGS) $(OBJDIR)/proxmark3.o $(COREOBJS) $(CMDOBJS) $(QTGUIOBJS) $(MULTIARCHOBJS) $(LDLIBS) -o $@
 
 flasher: $(OBJDIR)/flash.o $(OBJDIR)/flasher.o $(COREOBJS)
 	$(LD) $(LDFLAGS) $^ $(LDLIBS) -o $@
@@ -178,6 +195,9 @@ fpga_compress: $(OBJDIR)/fpga_compress.o $(ZLIBOBJS)
 
 proxguiqt.moc.cpp: proxguiqt.h
 	$(MOC) -o$@ $^
+
+ui/ui_overlays.h: ui/overlays.ui
+	$(UIC) $^ > $@
 
 lualibs/usb_cmd.lua: ../include/usb_cmd.h
 	awk -f usb_cmd_h2lua.awk $^ > $@
@@ -194,6 +214,24 @@ lua_build:
 	cd ../liblua && make $(LUAPLATFORM)
 
 .PHONY: all clean
+
+$(OBJDIR)/%_NOSIMD.o : %.c $(OBJDIR)/%.d
+	$(CC) $(DEPFLAGS) $(CFLAGS) -mno-mmx -mno-sse2 -mno-avx -mno-avx2 -mno-avx512f -c -o $@ $<
+
+$(OBJDIR)/%_MMX.o : %.c $(OBJDIR)/%.d
+	$(CC) $(DEPFLAGS) $(CFLAGS) -mmmx -mno-sse2 -mno-avx -mno-avx2 -mno-avx512f -c -o $@ $<
+
+$(OBJDIR)/%_SSE2.o : %.c $(OBJDIR)/%.d
+	$(CC) $(DEPFLAGS) $(CFLAGS) -mmmx -msse2 -mno-avx -mno-avx2 -mno-avx512f -c -o $@ $<
+
+$(OBJDIR)/%_AVX.o : %.c $(OBJDIR)/%.d
+	$(CC) $(DEPFLAGS) $(CFLAGS) -mmmx -msse2 -mavx -mno-avx2 -mno-avx512f -c -o $@ $<
+
+$(OBJDIR)/%_AVX2.o : %.c $(OBJDIR)/%.d
+	$(CC) $(DEPFLAGS) $(CFLAGS) -mmmx -msse2 -mavx -mavx2 -mno-avx512f -c -o $@ $<
+
+$(OBJDIR)/%_AVX512.o : %.c $(OBJDIR)/%.d
+	$(CC) $(DEPFLAGS) $(CFLAGS) -mmmx -msse2 -mavx -mavx2 -mavx512f -c -o $@ $<
 
 %.o: %.c
 $(OBJDIR)/%.o : %.c $(OBJDIR)/%.d
@@ -218,7 +256,7 @@ $(OBJDIR)/%.o : %.cpp $(OBJDIR)/%.d
 #	$(CXX) $(DEPFLAGS) $(CXXFLAGS) -c -o $@ $<
 #	$(POSTCOMPILE)
 
-DEPENDENCY_FILES = $(patsubst %.c, $(OBJDIR)/%.d, $(CORESRCS) $(CMDSRCS) $(ZLIBSRCS)) \
+DEPENDENCY_FILES = $(patsubst %.c, $(OBJDIR)/%.d, $(CORESRCS) $(CMDSRCS) $(ZLIBSRCS) $(MULTIARCHSRCS)) \
 	$(patsubst %.cpp, $(OBJDIR)/%.d, $(QTGUISRCS)) \
 	$(OBJDIR)/proxmark3.d $(OBJDIR)/flash.d $(OBJDIR)/flasher.d $(OBJDIR)/fpga_compress.d
 
