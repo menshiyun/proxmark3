@@ -5,6 +5,7 @@ This project uses the changelog in accordance with [keepchangelog](http://keepac
 ## [unreleased][unreleased]
 
 ### Added
+- Added hf mf hardnested, an attack working for hardened Mifare cards (EV1, Mifare Plus SL1) where hf mf nested fails
 - Added experimental testmode write option for t55xx (danger) (marshmellow)
 - Added t55xx p1detect to `lf search` chip detections (marshmellow)
 - Added lf t55xx p1detect, detect page 1 of a t55xx tag based on E015 mfg code (marshmellow)
@@ -57,6 +58,7 @@ This project uses the changelog in accordance with [keepchangelog](http://keepac
 - Added option c to 'hf list' (mark CRC bytes) (piwi)
 
 ### Changed
+- Adjusted the lf demods to auto align and set the grid for the graph plot. 
 - `lf snoop` now automatically gets samples from the device
 - `lf read` now accepts [#samples] as arg. && now automatically gets samples from the device
 - adjusted lf t5 chip timings to use WaitUS. and adjusted the readblock timings

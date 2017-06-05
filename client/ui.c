@@ -12,15 +12,20 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <readline/readline.h>
 #include <pthread.h>
 
 #include "ui.h"
 
-double CursorScaleFactor;
-int PlotGridX, PlotGridY, PlotGridXdefault= 64, PlotGridYdefault= 64, CursorCPos= 0, CursorDPos= 0;
+double CursorScaleFactor = 1;
+int PlotGridX=0, PlotGridY=0, PlotGridXdefault= 64, PlotGridYdefault= 64, CursorCPos= 0, CursorDPos= 0;
 int offline;
 int flushAfterWrite = 0;  //buzzy
+int GridOffset = 0;
+bool GridLocked = false;
+bool showDemod = true;
+
 extern pthread_mutex_t print_lock;
 
 static char *logfilename = "proxmark3.log";
