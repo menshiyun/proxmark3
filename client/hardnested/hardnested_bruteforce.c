@@ -54,12 +54,13 @@ THE SOFTWARE.
 #include <stdio.h>
 #include <pthread.h>
 #include <string.h>
-#include <malloc.h>
+#include <stdlib.h>
 #include "proxmark3.h"
 #include "cmdhfmfhard.h"
 #include "hardnested_bf_core.h"
 #include "ui.h"
 #include "util.h"
+#include "util_posix.h"
 #include "crapto1/crapto1.h"
 #include "parity.h"
 

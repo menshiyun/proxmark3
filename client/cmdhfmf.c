@@ -19,6 +19,7 @@
 #include "cmdmain.h"
 #include "cmdhfmfhard.h"
 #include "util.h"
+#include "util_posix.h"
 #include "usb_cmd.h"
 #include "ui.h"
 #include "mifarehost.h"
@@ -905,7 +906,7 @@ int CmdHF14AMfChk(const char *Cmd)
 	char filename[FILE_PATH_SIZE]={0};
 	char buf[13];
 	uint8_t *keyBlock = NULL, *p;
-	uint8_t stKeyBlock = 20;
+	uint16_t stKeyBlock = 20;
 	
 	int i, res;
 	int	keycnt = 0;
@@ -970,6 +971,7 @@ int CmdHF14AMfChk(const char *Cmd)
 		break;
 	default:
 		PrintAndLog("Key type must be A , B or ?");
+		free(keyBlock);
 		return 1;
 	};
 	
@@ -1120,7 +1122,8 @@ int CmdHF14AMfChk(const char *Cmd)
 }
 
 void readerAttack(nonces_t ar_resp[], bool setEmulatorMem, bool doStandardAttack) {
-	#define ATTACK_KEY_COUNT 8 // keep same as define in iso14443a.c -> Mifare1ksim()
+	#define ATTACK_KEY_COUNT 7 // keep same as define in iso14443a.c -> Mifare1ksim()
+	                           // cannot be more than 7 or it will overrun c.d.asBytes(512)
 	uint64_t key = 0;
 	typedef struct {
 			uint64_t keyA;

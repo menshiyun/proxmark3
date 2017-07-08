@@ -12,12 +12,15 @@
 #include <inttypes.h>
 #include "proxmark3.h"
 #include "util.h"
+#include "util_posix.h"
 #include "flash.h"
 #include "uart.h"
 #include "usb_cmd.h"
 
 #ifdef _WIN32
 # define unlink(x)
+#else
+# include <unistd.h>
 #endif
 
 static serial_port sp;
@@ -51,8 +54,7 @@ void ReceiveCommand(UsbCommand* rxcmd) {
   byte_t* prx = prxcmd;
   size_t rxlen;
   while (true) {
-    rxlen = sizeof(UsbCommand) - (prx-prxcmd);
-    if (uart_receive(sp,prx,&rxlen)) {
+    if (uart_receive(sp, prx, sizeof(UsbCommand) - (prx-prxcmd), &rxlen)) {
       prx += rxlen;
       if ((prx-prxcmd) >= sizeof(UsbCommand)) {
         return;
@@ -128,7 +130,7 @@ int main(int argc, char **argv)
   
   fprintf(stderr,"Waiting for Proxmark to appear on %s",serial_port_name);
   do {
-    sleep(1);
+    msleep(1000);
     fprintf(stderr, ".");
   } while (!OpenProxmark(0));
   fprintf(stderr," Found.\n");

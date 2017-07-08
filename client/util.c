@@ -8,10 +8,6 @@
 // utilities
 //-----------------------------------------------------------------------------
 
-#if !defined(_WIN32)
-#define _POSIX_C_SOURCE	199309L			// need nanosleep()
-#endif
-
 #include "util.h"
 
 #include <stdint.h>
@@ -21,6 +17,10 @@
 #include <stdio.h>
 #include <time.h>
 #include "data.h"
+
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #define MAX_BIN_BREAK_LENGTH   (3072+384+1)
 
@@ -193,13 +193,14 @@ char *sprint_hex_ascii(const uint8_t *data, const size_t len) {
 	static char buf[1024];
 	char *tmp = buf;
 	memset(buf, 0x00, 1024);
-	size_t max_len = (len > 1010) ? 1010 : len;
-
+	size_t max_len = (len > 255) ? 255 : len;
+	// max 255 bytes * 3 + 2 characters = 767 in buffer
 	sprintf(tmp, "%s| ", sprint_hex(data, max_len) );
 	
 	size_t i = 0;
 	size_t pos = (max_len * 3)+2;
-	while(i < max_len){
+	// add another 255 characters ascii = 1020 characters of buffer used
+	while(i < max_len) {
 		char c = data[i];
 		if ( (c < 32) || (c == 127))
 			c = '.';
@@ -614,48 +615,7 @@ void clean_ascii(unsigned char *buf, size_t len) {
 }
 
 
-// Timer functions
-#if !defined (_WIN32)
-#include <errno.h>
 
-static void nsleep(uint64_t n) {
-  struct timespec timeout;
-  timeout.tv_sec = n/1000000000;
-  timeout.tv_nsec = n%1000000000;
-  while (nanosleep(&timeout, &timeout) && errno == EINTR);
-}
-
-void msleep(uint32_t n) {
-	nsleep(1000000 * n);
-}
-
-#endif // _WIN32
-
-// a milliseconds timer for performance measurement
-uint64_t msclock() {
-#if defined(_WIN32)
-    #include <sys/types.h>
-    
-    // WORKAROUND FOR MinGW (some versions - use if normal code does not compile)
-    // It has no _ftime_s and needs explicit inclusion of timeb.h
-    #include <sys/timeb.h>
-    struct _timeb t;
-    _ftime(&t);
-    return 1000 * t.time + t.millitm;
-    
-    // NORMAL CODE (use _ftime_s)
-	//struct _timeb t;
-    //if (_ftime_s(&t)) {
-	//	return 0;
-	//} else {
-	//	return 1000 * t.time + t.millitm;
-	//}
-#else
-	struct timespec t;
-	clock_gettime(CLOCK_MONOTONIC, &t);
-	return (t.tv_sec * 1000 + t.tv_nsec / 1000000);
-#endif
-}
 
 // determine number of logical CPU cores (use for multithreaded functions)
 extern int num_CPUs(void)
@@ -672,3 +632,4 @@ extern int num_CPUs(void)
 	return 1;
 #endif
 }
+
