@@ -15,6 +15,7 @@
 *.dll
 *.moc.cpp
 *.z
+!client/hardnested/tables/*.z
 usb_cmd.lua
 version.c
 client/ui/ui_overlays.h

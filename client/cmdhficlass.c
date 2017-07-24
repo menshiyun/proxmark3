@@ -180,10 +180,10 @@ int CmdHFiClassSim(const char *Cmd) {
 
 int HFiClassReader(const char *Cmd, bool loop, bool verbose) {
 	bool tagFound = false;
-	UsbCommand c = {CMD_READER_ICLASS, {FLAG_ICLASS_READER_CSN|
-					FLAG_ICLASS_READER_CONF|FLAG_ICLASS_READER_AA}};
+	UsbCommand c = {CMD_READER_ICLASS, {FLAG_ICLASS_READER_CSN |
+		    FLAG_ICLASS_READER_CC | FLAG_ICLASS_READER_CONF | FLAG_ICLASS_READER_AA |
+		    FLAG_ICLASS_READER_ONLY_ONCE | FLAG_ICLASS_READER_ONE_TRY } };
 	// loop in client not device - else on windows have a communication error
-	c.arg[0] |= FLAG_ICLASS_READER_ONLY_ONCE | FLAG_ICLASS_READER_ONE_TRY;
 	UsbCommand resp;
 	while(!ukbhit()){
 		SendCommand(&c);
@@ -191,21 +191,34 @@ int HFiClassReader(const char *Cmd, bool loop, bool verbose) {
 			uint8_t readStatus = resp.arg[0] & 0xff;
 			uint8_t *data = resp.d.asBytes;
 
-			if (verbose)
-				PrintAndLog("Readstatus:%02x", readStatus);
-			if( readStatus == 0){
-				//Aborted
+			// no tag found or button pressed
+			if( (readStatus == 0 && !loop) || readStatus == 0xFF) {
+				// abort
 				if (verbose) PrintAndLog("Quitting...");
 				return 0;
 			}
-			if( readStatus & FLAG_ICLASS_READER_CSN){
-				PrintAndLog("CSN: %s",sprint_hex(data,8));
+
+			if( readStatus & FLAG_ICLASS_READER_CSN) {
+				PrintAndLog("   CSN: %s",sprint_hex(data,8));
 				tagFound = true;
 			}
-			if( readStatus & FLAG_ICLASS_READER_CC)  PrintAndLog("CC: %s",sprint_hex(data+16,8));
-			if( readStatus & FLAG_ICLASS_READER_CONF){
+			if( readStatus & FLAG_ICLASS_READER_CC) { 
+				PrintAndLog("    CC: %s",sprint_hex(data+16,8));
+			}
+			if( readStatus & FLAG_ICLASS_READER_CONF) {
 				printIclassDumpInfo(data);
 			}
+			if (readStatus & FLAG_ICLASS_READER_AA) {
+				bool legacy = true;
+				PrintAndLog(" AppIA: %s",sprint_hex(data+8*5,8));
+				for (int i = 0; i<8; i++) {
+					if (data[8*5+i] != 0xFF) {
+						legacy = false;
+					} 
+				}
+				PrintAndLog("      : Possible iClass %s",(legacy) ? "(legacy tag)" : "(NOT legacy tag)");
+			}
+
 			if (tagFound && !loop) return 1;
 		} else {
 			if (verbose) PrintAndLog("Command execute timeout");
@@ -1095,12 +1108,19 @@ int CmdHFiClassCloneTag(const char *Cmd) {
 	return 1;
 }
 
-static int ReadBlock(uint8_t *KEY, uint8_t blockno, uint8_t keyType, bool elite, bool rawkey, bool verbose) {
+static int ReadBlock(uint8_t *KEY, uint8_t blockno, uint8_t keyType, bool elite, bool rawkey, bool verbose, bool auth) {
 	uint8_t MAC[4]={0x00,0x00,0x00,0x00};
 	uint8_t div_key[8]={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
 
-	if (!select_and_auth(KEY, MAC, div_key, (keyType==0x18), elite, rawkey, verbose))
-		return 0;
+	if (auth) {
+		if (!select_and_auth(KEY, MAC, div_key, (keyType==0x18), elite, rawkey, verbose))
+			return 0;
+	} else {
+		uint8_t CSN[8]={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+		uint8_t CCNR[12]={0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00};
+		if (!select_only(CSN, CCNR, (keyType==0x18), verbose))
+			return 0;
+	}
 
 	UsbCommand resp;
 	UsbCommand w = {CMD_ICLASS_READBLOCK, {blockno}};
@@ -1146,6 +1166,7 @@ int CmdHFiClass_ReadBlock(const char *Cmd) {
 	bool elite = false;
 	bool rawkey = false;
 	bool errors = false;
+	bool auth = false;
 	uint8_t cmdp = 0;
 	while(param_getchar(Cmd, cmdp) != 0x00)
 	{
@@ -1174,6 +1195,7 @@ int CmdHFiClass_ReadBlock(const char *Cmd) {
 			break;
 		case 'k':
 		case 'K':
+			auth = true;
 			dataLen = param_getstr(Cmd, cmdp+1, tempStr);
 			if (dataLen == 16) { 
 				errors = param_gethex(tempStr, 0, KEY, dataLen);
@@ -1204,9 +1226,10 @@ int CmdHFiClass_ReadBlock(const char *Cmd) {
 		if(errors) return usage_hf_iclass_readblock();
 	}
 
-	if (cmdp < 4) return usage_hf_iclass_readblock();
-
-	return ReadBlock(KEY, blockno, keyType, elite, rawkey, true);
+	if (cmdp < 2) return usage_hf_iclass_readblock();
+	if (!auth)
+		PrintAndLog("warning: no authentication used with read, only a few specific blocks can be read accurately without authentication.");
+	return ReadBlock(KEY, blockno, keyType, elite, rawkey, true, auth);
 }
 
 int CmdHFiClass_loclass(const char *Cmd) {
@@ -1689,7 +1712,7 @@ static command_t CommandTable[] =
 	{"loclass",     CmdHFiClass_loclass,        	1,	"[options..] Use loclass to perform bruteforce of reader attack dump"},
 	{"managekeys",  CmdHFiClassManageKeys,      	1,	"[options..] Manage the keys to use with iClass"},
 	{"readblk",     CmdHFiClass_ReadBlock,      	0,	"[options..] Authenticate and Read iClass block"},
-	{"reader",      CmdHFiClassReader,          	0,	"            Read an iClass tag"},
+	{"reader",      CmdHFiClassReader,          	0,	"            Look for iClass tags until a key or the pm3 button is pressed"},
 	{"readtagfile", CmdHFiClassReadTagFile,     	1,	"[options..] Display Content from tagfile"},
 	{"replay",      CmdHFiClassReader_Replay,   	0,	"<mac>       Read an iClass tag via Reply Attack"},
 	{"sim",         CmdHFiClassSim,             	0,	"[options..] Simulate iClass tag"},
