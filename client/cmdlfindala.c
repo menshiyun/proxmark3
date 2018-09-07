@@ -8,10 +8,11 @@
 // PSK1, rf/32, 64 or 224 bits (known)
 //-----------------------------------------------------------------------------
 
+#include "cmdlfindala.h"
+
 #include <stdio.h>
 #include <string.h>
-#include "cmdlfindala.h"
-#include "proxmark3.h"
+#include "comms.h"
 #include "ui.h"
 #include "graph.h"
 #include "cmdparser.h"
@@ -40,10 +41,16 @@ int CmdIndalaDecode(const char *Cmd) {
 	}
 	uint8_t invert=0;
 	size_t size = DemodBufferLen;
-	int startIdx = indala26decode(DemodBuffer, &size, &invert);
-	if (startIdx < 0 || size > 224) {
-		if (g_debugMode) PrintAndLog("Error2: %i",startIdx);
-		return -1;
+	int startIdx = indala64decode(DemodBuffer, &size, &invert);
+	if (startIdx < 0 || size != 64) {
+		// try 224 indala
+		invert = 0;
+		size = DemodBufferLen;
+		startIdx = indala224decode(DemodBuffer, &size, &invert);
+		if (startIdx < 0 || size != 224) {
+			if (g_debugMode) PrintAndLog("Error2: %i",startIdx);
+			return -1;
+		}
 	}
 	setDemodBuf(DemodBuffer, size, (size_t)startIdx);
 	setClockGrid(g_DemodClock, g_DemodStartIdx + (startIdx*g_DemodClock));
@@ -280,7 +287,7 @@ int CmdIndalaDemod(const char *Cmd) {
 }
 
 int CmdIndalaClone(const char *Cmd) {
-	UsbCommand c;
+	UsbCommand c = {0};
 	unsigned int uid1, uid2, uid3, uid4, uid5, uid6, uid7;
 
 	uid1 =  uid2 = uid3 = uid4 = uid5 = uid6 = uid7 = 0;

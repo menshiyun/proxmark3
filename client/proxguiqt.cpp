@@ -85,6 +85,17 @@ void ProxGuiQT::_Exit(void) {
 	delete this;
 }
 
+void ProxGuiQT::_StartProxmarkThread(void) {
+	if (!proxmarkThread)
+		return;
+
+	// if thread finished delete self and delete application
+	QObject::connect(proxmarkThread, SIGNAL(finished()), proxmarkThread, SLOT(deleteLater()));
+	QObject::connect(proxmarkThread, SIGNAL(finished()), this, SLOT(_Exit()));
+	// start proxmark thread
+	proxmarkThread->start();
+}
+
 void ProxGuiQT::MainLoop()
 {
 	plotapp = new QApplication(argc, argv);
@@ -94,11 +105,14 @@ void ProxGuiQT::MainLoop()
 	connect(this, SIGNAL(HideGraphWindowSignal()), this, SLOT(_HideGraphWindow()));
 	connect(this, SIGNAL(ExitSignal()), this, SLOT(_Exit()));
 
+	//start proxmark thread after starting event loop
+	QTimer::singleShot(200, this, SLOT(_StartProxmarkThread()));
+
 	plotapp->exec();
 }
 
-ProxGuiQT::ProxGuiQT(int argc, char **argv) : plotapp(NULL), plotwidget(NULL),
-	argc(argc), argv(argv)
+ProxGuiQT::ProxGuiQT(int argc, char **argv, WorkerThread *wthread) : plotapp(NULL), plotwidget(NULL),
+	argc(argc), argv(argv), proxmarkThread(wthread)
 {
 }
 
@@ -255,6 +269,7 @@ int Plot::xCoordOf(int i, QRect r )
 int Plot::yCoordOf(int v, QRect r, int maxVal)
 {
 	int z = (r.bottom() - r.top())/2;
+	if ( maxVal == 0 ) maxVal++;
 	return -(z * v) / maxVal + z;
 }
 
@@ -565,6 +580,8 @@ Plot::Plot(QWidget *parent) : QWidget(parent), GraphStart(0), GraphPixelsPerPoin
 	CursorBPos = 0;
 
 	setWindowTitle(tr("Sliders"));
+
+	master = parent;
 }
 
 void Plot::closeEvent(QCloseEvent *event)
@@ -674,7 +691,7 @@ void Plot::keyPressEvent(QKeyEvent *event)
 			break;
 
 		case Qt::Key_Q:
-			this->hide();
+			master->hide();
 			break;
 
 		default:
