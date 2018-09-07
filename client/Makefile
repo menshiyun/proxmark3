@@ -41,7 +41,7 @@ else
 		LUAPLATFORM = macosx
 	else
 		LUALIB +=  -ldl
-		#LDLIBS +=  -ltermcap -lncurses
+		LDLIBS +=  -ltermcap -lncurses
 		LUAPLATFORM = linux
 	endif
 endif
