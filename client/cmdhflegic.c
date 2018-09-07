@@ -8,16 +8,17 @@
 // High frequency Legic commands
 //-----------------------------------------------------------------------------
 
+#include "cmdhflegic.h"
+
 #include <stdio.h>
 #include <string.h>
 #include <inttypes.h>
-#include "proxmark3.h"
-#include "data.h"
+#include "comms.h"
 #include "ui.h"
 #include "cmdparser.h"
-#include "cmdhflegic.h"
 #include "cmdmain.h"
 #include "util.h"
+
 static int CmdHelp(const char *Cmd);
 
 static command_t CommandTable[] = 
@@ -64,8 +65,7 @@ int CmdLegicDecode(const char *Cmd)
   char token_type[4];
   
   // copy data from proxmark into buffer
-   GetFromBigBuf(data_buf,sizeof(data_buf),0);
-   WaitForResponse(CMD_ACK,NULL);
+   GetFromBigBuf(data_buf, sizeof(data_buf), 0, NULL, -1, false);
     
   // Output CDF System area (9 bytes) plus remaining header area (12 bytes)
   
@@ -251,7 +251,7 @@ int CmdLegicLoad(const char *Cmd)
           fclose(f);
           return -1;
         }
-        UsbCommand c={CMD_DOWNLOADED_SIM_SAMPLES_125K, {offset, 0, 0}};
+        UsbCommand c={CMD_DOWNLOADED_SIM_SAMPLES_125K, {offset, 1, 0}};
         int j; for(j = 0; j < 8; j++) {
             c.d.asBytes[j] = data[j];
         }
@@ -294,8 +294,7 @@ int CmdLegicSave(const char *Cmd)
     return -1;
   }
 
-  GetFromBigBuf(got,requested,offset);
-  WaitForResponse(CMD_ACK,NULL);
+  GetFromBigBuf(got, requested, offset, NULL, -1, false);
 
   for (int j = 0; j < requested; j += 8) {
     fprintf(f, "%02x %02x %02x %02x %02x %02x %02x %02x\n",
@@ -351,7 +350,7 @@ int CmdLegicRfFill(const char *Cmd)
     }
 
     int i;
-    UsbCommand c={CMD_DOWNLOADED_SIM_SAMPLES_125K, {0, 0, 0}};
+    UsbCommand c={CMD_DOWNLOADED_SIM_SAMPLES_125K, {0, 1, 0}};
     for(i = 0; i < 48; i++) {
       c.d.asBytes[i] = cmd.arg[2];
     }
