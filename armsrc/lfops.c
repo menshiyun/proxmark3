@@ -18,6 +18,7 @@
 #include "lfsampling.h"
 #include "protocols.h"
 #include "usb_cdc.h" // for usb_poll_validate_length
+#include "fpgaloader.h"
 
 /**
  * Function to do a modulation and then get samples.
@@ -593,7 +594,7 @@ static void fcAll(uint8_t fc, int *n, uint8_t clock, uint16_t *modCnt)
 
 // prepare a waveform pattern in the buffer based on the ID given then
 // simulate a HID tag until the button is pressed
-void CmdHIDsimTAG(int hi, int lo, int ledcontrol)
+void CmdHIDsimTAG(int hi2, int hi, int lo, int ledcontrol)
 {
 	int n=0, i=0;
 	/*
@@ -606,8 +607,8 @@ void CmdHIDsimTAG(int hi, int lo, int ledcontrol)
 	 nor 1 bits, they are special patterns (a = set of 12 fc8 and b = set of 10 fc10)
 	*/
 
-	if (hi>0xFFF) {
-		DbpString("Tags can only have 44 bits. - USE lf simfsk for larger tags");
+	if (hi2>0x0FFFFFFF) {
+		DbpString("Tags can only have 44 or 84 bits. - USE lf simfsk for larger tags");
 		return;
 	}
 	// set LF so we don't kill the bigbuf we are setting with simulation data.
@@ -621,13 +622,35 @@ void CmdHIDsimTAG(int hi, int lo, int ledcontrol)
 	fc(8,  &n);	fc(10, &n); // logical 0
 
 	WDT_HIT();
-	// manchester encode bits 43 to 32
-	for (i=11; i>=0; i--) {
-		if ((i%4)==3) fc(0,&n);
-		if ((hi>>i)&1) {
-			fc(10, &n); fc(8,  &n);		// low-high transition
-		} else {
-			fc(8,  &n); fc(10, &n);		// high-low transition
+	if (hi2 > 0 || hi > 0xFFF){
+		// manchester encode bits 91 to 64 (91-84 are part of the header)
+		for (i=27; i>=0; i--) {
+			if ((i%4)==3) fc(0,&n);
+			if ((hi2>>i)&1) {
+				fc(10, &n); fc(8,  &n);		// low-high transition
+			} else {
+				fc(8,  &n); fc(10, &n);		// high-low transition
+			}
+		}
+		WDT_HIT();
+		// manchester encode bits 63 to 32
+		for (i=31; i>=0; i--) {
+			if ((i%4)==3) fc(0,&n);
+			if ((hi>>i)&1) {
+				fc(10, &n); fc(8,  &n);		// low-high transition
+			} else {
+				fc(8,  &n); fc(10, &n);		// high-low transition
+			}
+		}
+	} else {
+		// manchester encode bits 43 to 32
+		for (i=11; i>=0; i--) {
+			if ((i%4)==3) fc(0,&n);
+			if ((hi>>i)&1) {
+				fc(10, &n); fc(8,  &n);		// low-high transition
+			} else {
+				fc(8,  &n); fc(10, &n);		// high-low transition
+			}
 		}
 	}
 
@@ -839,7 +862,7 @@ void CmdPSKsimTag(uint16_t arg1, uint16_t arg2, size_t size, uint8_t *BitStream)
 }
 
 // loop to get raw HID waveform then FSK demodulate the TAG ID from it
-void CmdHIDdemodFSK(int findone, int *high, int *low, int ledcontrol)
+void CmdHIDdemodFSK(int findone, int *high2, int *high, int *low, int ledcontrol)
 {
 	uint8_t *dest = BigBuf_get_addr();
 	//const size_t sizeOfBigBuff = BigBuf_max_traceLen();
@@ -854,7 +877,6 @@ void CmdHIDdemodFSK(int findone, int *high, int *low, int ledcontrol)
 	BigBuf_Clear_keep_EM();
 
 	while(!BUTTON_PRESS() && !usb_poll_validate_length()) {
-
 		WDT_HIT();
 		if (ledcontrol) LED_A_ON();
 
@@ -865,60 +887,70 @@ void CmdHIDdemodFSK(int findone, int *high, int *low, int ledcontrol)
 		idx = HIDdemodFSK(dest, &size, &hi2, &hi, &lo, &dummyIdx);
 		
 		if (idx>0 && lo>0 && (size==96 || size==192)){
+			uint8_t bitlen = 0;
+			uint32_t fc = 0;
+			uint32_t cardnum = 0;
+			bool decoded = false;
+
 			// go over previously decoded manchester data and decode into usable tag ID
-			if (hi2 != 0){ //extra large HID tags  88/192 bits
-				Dbprintf("TAG ID: %x%08x%08x (%d)",
-				  (unsigned int) hi2, (unsigned int) hi, (unsigned int) lo, (unsigned int) (lo>>1) & 0xFFFF);
-			}else {  //standard HID tags 44/96 bits
-				//Dbprintf("TAG ID: %x%08x (%d)",(unsigned int) hi, (unsigned int) lo, (unsigned int) (lo>>1) & 0xFFFF); //old print cmd
-				uint8_t bitlen = 0;
-				uint32_t fc = 0;
-				uint32_t cardnum = 0;
-				if (((hi>>5)&1) == 1){//if bit 38 is set then < 37 bit format is used
-					uint32_t lo2=0;
-					lo2=(((hi & 31) << 12) | (lo>>20)); //get bits 21-37 to check for format len bit
-					uint8_t idx3 = 1;
-					while(lo2 > 1){ //find last bit set to 1 (format len bit)
-						lo2=lo2 >> 1;
-						idx3++;
-					}
-					bitlen = idx3+19;
-					fc =0;
-					cardnum=0;
-					if(bitlen == 26){
-						cardnum = (lo>>1)&0xFFFF;
-						fc = (lo>>17)&0xFF;
-					}
-					if(bitlen == 37){
-						cardnum = (lo>>1)&0x7FFFF;
-						fc = ((hi&0xF)<<12)|(lo>>20);
-					}
-					if(bitlen == 34){
-						cardnum = (lo>>1)&0xFFFF;
-						fc= ((hi&1)<<15)|(lo>>17);
-					}
-					if(bitlen == 35){
-						cardnum = (lo>>1)&0xFFFFF;
-						fc = ((hi&1)<<11)|(lo>>21);
-					}
+			if ((hi2 & 0x000FFFF) != 0){ //extra large HID tags  88/192 bits
+				uint32_t bp = hi2 & 0x000FFFFF;
+				bitlen = 63;
+				while (bp > 0) {
+					bp = bp >> 1;
+					bitlen++;
 				}
-				else { //if bit 38 is not set then 37 bit format is used
-					bitlen= 37;
-					fc =0;
-					cardnum=0;
-					if(bitlen==37){
-						cardnum = (lo>>1)&0x7FFFF;
-						fc = ((hi&0xF)<<12)|(lo>>20);
-					}
+			} else if ((hi >> 6) > 0) {
+				uint32_t bp = hi;
+				bitlen = 31;
+				while (bp > 0) {
+					bp = bp >> 1;
+					bitlen++;
 				}
-				//Dbprintf("TAG ID: %x%08x (%d)",
-				// (unsigned int) hi, (unsigned int) lo, (unsigned int) (lo>>1) & 0xFFFF);
-				Dbprintf("TAG ID: %x%08x (%d) - Format Len: %dbit - FC: %d - Card: %d",
-						 (unsigned int) hi, (unsigned int) lo, (unsigned int) (lo>>1) & 0xFFFF,
-						 (unsigned int) bitlen, (unsigned int) fc, (unsigned int) cardnum);
+			} else if (((hi >> 5) & 1) == 0) {
+				bitlen = 37;
+			} else if ((hi & 0x0000001F) > 0 ) {
+				uint32_t bp = (hi & 0x0000001F);
+				bitlen = 31;
+				while (bp > 0) {
+					bp = bp >> 1;
+					bitlen++;
+				}
+			} else {
+				uint32_t bp = lo;
+				bitlen = 0;
+				while (bp > 0) {
+					bp = bp >> 1;
+					bitlen++;
+				}
 			}
+			switch (bitlen){
+				case 26:
+					cardnum = (lo>>1)&0xFFFF;
+					fc = (lo>>17)&0xFF;
+					decoded = true;
+					break;
+				case 35:
+					cardnum = (lo>>1)&0xFFFFF;
+					fc = ((hi&1)<<11)|(lo>>21);
+					decoded = true;
+					break;
+			}
+				
+			if (hi2 != 0) //extra large HID tags  88/192 bits
+				Dbprintf("TAG ID: %x%08x%08x (%d)",
+					(unsigned int) hi2, (unsigned int) hi, (unsigned int) lo, (unsigned int) (lo>>1) & 0xFFFF);
+			else 
+				Dbprintf("TAG ID: %x%08x (%d)",
+					(unsigned int) hi, (unsigned int) lo, (unsigned int) (lo>>1) & 0xFFFF);
+			
+			if (decoded)
+				Dbprintf("Format Len: %dbits - FC: %d - Card: %d",
+					(unsigned int) bitlen, (unsigned int) fc, (unsigned int) cardnum);
+
 			if (findone){
 				if (ledcontrol)	LED_A_OFF();
+				*high2 = hi2;
 				*high = hi;
 				*low = lo;
 				break;
@@ -1166,10 +1198,45 @@ void CmdIOdemodFSK(int findone, int *high, int *low, int ledcontrol)
  * and enlarge the gap ones.
  * Q5 tags seems to have issues when these values changes. 
  */
-#define START_GAP 31*8 // was 250 // SPEC:  1*8 to 50*8 - typ 15*8 (or 15fc)
-#define WRITE_GAP 20*8 // was 160 // SPEC:  1*8 to 20*8 - typ 10*8 (or 10fc)
-#define WRITE_0   18*8 // was 144 // SPEC: 16*8 to 32*8 - typ 24*8 (or 24fc)
-#define WRITE_1   50*8 // was 400 // SPEC: 48*8 to 64*8 - typ 56*8 (or 56fc)  432 for T55x7; 448 for E5550
+
+/* Q5 timing datasheet:
+ * Type                  |  MIN   | Typical |  Max   |
+ * Start_Gap             |  10*8  |    ?    |  50*8  |
+ * Write_Gap Normal mode |   8*8  |   14*8  |  20*8  | 
+ * Write_Gap Fast Mode   |   8*8  |    ?    |  20*8  |
+ * Write_0   Normal mode |  16*8  |   24*8  |  32*8  |
+ * Write_1   Normal mode |  48*8  |   56*8  |  64*8  |
+ * Write_0   Fast Mode   |   8*8  |   12*8  |  16*8  |
+ * Write_1   Fast Mode   |  24*8  |   28*8  |  32*8  |
+*/
+
+/* T5557 timing datasheet:
+ * Type                  |  MIN   | Typical |  Max   |
+ * Start_Gap             |  10*8  |    ?    |  50*8  |
+ * Write_Gap Normal mode |   8*8  |50-150us |  30*8  | 
+ * Write_Gap Fast Mode   |   8*8  |    ?    |  20*8  |
+ * Write_0   Normal mode |  16*8  |   24*8  |  31*8  | 
+ * Write_1   Normal mode |  48*8  |   54*8  |  63*8  | 
+ * Write_0   Fast Mode   |   8*8  |   12*8  |  15*8  |
+ * Write_1   Fast Mode   |  24*8  |   28*8  |  31*8  |
+*/
+
+/* T5577C timing datasheet for Fixed-Bit-Length protocol (defualt):
+ * Type                  |  MIN   | Typical |  Max   |
+ * Start_Gap             |   8*8  |   15*8  |  50*8  |
+ * Write_Gap Normal mode |   8*8  |   10*8  |  20*8  | 
+ * Write_Gap Fast Mode   |   8*8  |   10*8  |  20*8  |
+ * Write_0   Normal mode |  16*8  |   24*8  |  32*8  | 
+ * Write_1   Normal mode |  48*8  |   56*8  |  64*8  | 
+ * Write_0   Fast Mode   |   8*8  |   12*8  |  16*8  |
+ * Write_1   Fast Mode   |  24*8  |   28*8  |  32*8  |
+*/
+
+//note startgap must be sent after tag has been powered up for more than 3ms (per T5557 ds)
+#define START_GAP 31*8 //31*8 // was 250 // SPEC:  1*8 to 50*8 - typ 15*8 (or 15fc) - T5557: 10*8 to 50*8 
+#define WRITE_GAP 20*8 //20*8 // was 160 // SPEC:  1*8 to 20*8 - typ 10*8 (or 10fc) - T5557:  8*8 to 30*8 typ 50-150us
+#define WRITE_0   18*8 //18*8 // was 144 // SPEC: 16*8 to 32*8 - typ 24*8 (or 24fc) - T5557: 16*8 to 31*8 typ 24*8
+#define WRITE_1   50*8 //50*8 // was 400 // SPEC: 48*8 to 64*8 - typ 56*8 (or 56fc) - T5557: 48*8 to 63*8 typ 54*8       432 for T55x7; 448 for E5550
 #define READ_GAP  15*8 
 
 void TurnReadLFOn(int delay) {
@@ -1323,7 +1390,7 @@ void T55xxReadBlock(uint16_t arg0, uint8_t Block, uint32_t Pwd) {
 	T55xxWriteBit(1);
 	T55xxWriteBit(Page); //Page 0
 
-	if (PwdMode){
+	if (PwdMode) {
 		// Send Pwd
 		for (i = 0x80000000; i != 0; i >>= 1)
 			T55xxWriteBit(Pwd & i);
@@ -1386,8 +1453,8 @@ void WriteT55xx(uint32_t *blockdata, uint8_t startblock, uint8_t numblocks) {
 	}
 }
 
-// Copy HID id to card and setup block 0 config
-void CopyHIDtoT55x7(uint32_t hi2, uint32_t hi, uint32_t lo, uint8_t longFMT) {
+// Copy a HID-like card (e.g. HID Proximity, Paradox) to a T55x7 compatible card
+void CopyHIDtoT55x7(uint32_t hi2, uint32_t hi, uint32_t lo, uint8_t longFMT, uint8_t preamble) {
 	uint32_t data[] = {0,0,0,0,0,0,0};
 	uint8_t last_block = 0;
 
@@ -1399,15 +1466,15 @@ void CopyHIDtoT55x7(uint32_t hi2, uint32_t hi, uint32_t lo, uint8_t longFMT) {
 		}
 		// Build the 6 data blocks for supplied 84bit ID
 		last_block = 6;
-		// load preamble (1D) & long format identifier (9E manchester encoded)
-		data[1] = 0x1D96A900 | (manchesterEncode2Bytes((hi2 >> 16) & 0xF) & 0xFF);
+		// load preamble & long format identifier (9E manchester encoded)
+		data[1] = (preamble << 24) | 0x96A900 | (manchesterEncode2Bytes((hi2 >> 16) & 0xF) & 0xFF);
 		// load raw id from hi2, hi, lo to data blocks (manchester encoded)
 		data[2] = manchesterEncode2Bytes(hi2 & 0xFFFF);
 		data[3] = manchesterEncode2Bytes(hi >> 16);
 		data[4] = manchesterEncode2Bytes(hi & 0xFFFF);
 		data[5] = manchesterEncode2Bytes(lo >> 16);
 		data[6] = manchesterEncode2Bytes(lo & 0xFFFF);
-	}	else {
+	} else {
 		// Ensure no more than 44 bits supplied
 		if (hi>0xFFF) {
 			DbpString("Tags can only have 44 bits.");
@@ -1416,7 +1483,7 @@ void CopyHIDtoT55x7(uint32_t hi2, uint32_t hi, uint32_t lo, uint8_t longFMT) {
 		// Build the 3 data blocks for supplied 44bit ID
 		last_block = 3;
 		// load preamble
-		data[1] = 0x1D000000 | (manchesterEncode2Bytes(hi) & 0xFFFFFF);
+		data[1] = (preamble << 24) | (manchesterEncode2Bytes(hi) & 0xFFFFFF);
 		data[2] = manchesterEncode2Bytes(lo >> 16);
 		data[3] = manchesterEncode2Bytes(lo & 0xFFFF);
 	}
@@ -1582,6 +1649,7 @@ void WriteEM410x(uint32_t card, uint32_t id_hi, uint32_t id_lo) {
 #define FWD_CMD_WRITE 0xA
 #define FWD_CMD_READ 0x9
 #define FWD_CMD_DISABLE 0x5
+#define FWD_CMD_PROTECT 0x3
 
 uint8_t forwardLink_data[64]; //array of forwarded bits
 uint8_t * forward_ptr; //ptr for forward message preparation
@@ -1751,7 +1819,7 @@ void EM4xReadWord(uint8_t Address, uint32_t Pwd, uint8_t PwdMode) {
 
 void EM4xWriteWord(uint32_t flag, uint32_t Data, uint32_t Pwd) {
 	
-	bool PwdMode = (flag & 0xF);
+	bool PwdMode = (flag & 0x1);
 	uint8_t Address = (flag >> 8) & 0xFF;
 	uint8_t fwd_bit_count;
 
@@ -1766,6 +1834,39 @@ void EM4xWriteWord(uint32_t flag, uint32_t Data, uint32_t Pwd) {
 	forward_ptr = forwardLink_data;
 	fwd_bit_count = Prepare_Cmd( FWD_CMD_WRITE );
 	fwd_bit_count += Prepare_Addr( Address );
+	fwd_bit_count += Prepare_Data( Data&0xFFFF, Data>>16 );
+
+	SendForward(fwd_bit_count);
+
+	//Wait for write to complete
+	//SpinDelay(10);
+
+	WaitUS(6500);
+	//Capture response if one exists
+	DoPartialAcquisition(20, true, 6000, 1000);
+
+	FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF); // field off
+	LED_A_OFF();
+	cmd_send(CMD_ACK,0,0,0,0,0);
+}
+
+void EM4xProtect(uint32_t flag, uint32_t Data, uint32_t Pwd) {
+	
+	bool PwdMode = (flag & 0x1);
+	uint8_t fwd_bit_count;
+
+	//clear buffer now so it does not interfere with timing later
+	BigBuf_Clear_ext(false);
+
+	LED_A_ON();
+	StartTicks();
+	//If password mode do login
+	if (PwdMode) EM4xLogin(Pwd);
+
+	forward_ptr = forwardLink_data;
+	fwd_bit_count = Prepare_Cmd( FWD_CMD_PROTECT );
+
+	//unsure if this needs the full packet config...
 	fwd_bit_count += Prepare_Data( Data&0xFFFF, Data>>16 );
 
 	SendForward(fwd_bit_count);

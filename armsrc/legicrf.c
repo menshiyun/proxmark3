@@ -10,15 +10,16 @@
 // LEGIC RF simulation code
 //-----------------------------------------------------------------------------
 
+#include "legicrf.h"
+
 #include "proxmark3.h"
 #include "apps.h"
 #include "util.h"
 #include "string.h"
-
-#include "legicrf.h"
 #include "legic_prng.h"
 #include "legic.h"
 #include "crc.h"
+#include "fpgaloader.h"
 
 static legic_card_select_t card;/* metadata of currently selected card */
 static crc_t legic_crc;
@@ -151,7 +152,7 @@ static inline void tx_bit(bool bit) {
 //-----------------------------------------------------------------------------
 
 static void tx_frame(uint32_t frame, uint8_t len) {
-  FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER_TX);
+  FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER | FPGA_HF_READER_MODE_SEND_FULL_MOD);
 
   // wait for next tx timeslot
   last_frame_end += RWD_FRAME_WAIT;
@@ -172,9 +173,7 @@ static void tx_frame(uint32_t frame, uint8_t len) {
 }
 
 static uint32_t rx_frame(uint8_t len) {
-  FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER_RX_XCORR
-                  | FPGA_HF_READER_RX_XCORR_848_KHZ
-                  | FPGA_HF_READER_RX_XCORR_QUARTER_FREQ);
+  FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER | FPGA_HF_READER_SUBCARRIER_212_KHZ | FPGA_HF_READER_MODE_RECEIVE_IQ);
 
   // hold sampling until card is expected to respond
   last_frame_end += TAG_FRAME_WAIT;
@@ -195,9 +194,7 @@ static uint32_t rx_frame(uint8_t len) {
 
 static bool rx_ack() {
   // change fpga into rx mode
-  FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER_RX_XCORR
-                  | FPGA_HF_READER_RX_XCORR_848_KHZ
-                  | FPGA_HF_READER_RX_XCORR_QUARTER_FREQ);
+  FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER | FPGA_HF_READER_SUBCARRIER_212_KHZ | FPGA_HF_READER_MODE_RECEIVE_IQ);
 
   // hold sampling until card is expected to respond
   last_frame_end += TAG_FRAME_WAIT;
@@ -257,14 +254,12 @@ static int init_card(uint8_t cardtype, legic_card_select_t *p_card) {
 static void init_reader(bool clear_mem) {
   // configure FPGA
   FpgaDownloadAndGo(FPGA_BITSTREAM_HF);
-  FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER_RX_XCORR
-                  | FPGA_HF_READER_RX_XCORR_848_KHZ
-                  | FPGA_HF_READER_RX_XCORR_QUARTER_FREQ);
+  FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_READER | FPGA_HF_READER_SUBCARRIER_212_KHZ | FPGA_HF_READER_MODE_RECEIVE_IQ);
   SetAdcMuxFor(GPIO_MUXSEL_HIPKD);
   LED_D_ON();
 
   // configure SSC with defaults
-  FpgaSetupSsc(FPGA_MAJOR_MODE_HF_READER_RX_XCORR);
+  FpgaSetupSsc(FPGA_MAJOR_MODE_HF_READER);
 
   // re-claim GPIO_SSC_DOUT as GPIO and enable output
   AT91C_BASE_PIOA->PIO_OER = GPIO_SSC_DOUT;
@@ -384,8 +379,9 @@ void LegicRfReader(int offset, int bytes) {
   // establish shared secret and detect card type
   DbpString("Reading card ...");
   uint8_t card_type = setup_phase(SESSION_IV);
+  uint8_t result = 0;
   if(init_card(card_type, &card) != 0) {
-    Dbprintf("No or unknown card found, aborting");
+    result = 1;
     goto OUT;
   }
 
@@ -402,17 +398,14 @@ void LegicRfReader(int offset, int bytes) {
   for(uint16_t i = 0; i < bytes; ++i) {
     int16_t byte = read_byte(offset + i, card.cmdsize);
     if(byte == -1) {
-      Dbprintf("operation failed @ 0x%03.3x", bytes);
+      result = 2;
       goto OUT;
     }
     BigBuf[i] = byte;
   }
 
-  // OK
-  Dbprintf("Card (MIM %i) read, use 'hf legic decode' or", card.cardsize);
-  Dbprintf("'data hexsamples %d' to view results", (bytes+7) & ~7);
-
 OUT:
+  cmd_send(CMD_ACK, result, bytes, 0, &card, sizeof(card));
   FpgaWriteConfWord(FPGA_MAJOR_MODE_OFF);
   LED_B_OFF();
   LED_C_OFF();

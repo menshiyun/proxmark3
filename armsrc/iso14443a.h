@@ -41,7 +41,6 @@ extern void ReaderMifare(bool first_try);
 
 extern int EmGetCmd(uint8_t *received, uint16_t *len, uint8_t *parity);
 extern int EmSendCmd(uint8_t *resp, uint16_t respLen);
-extern int EmSendCmdEx(uint8_t *resp, uint16_t respLen);
 extern int EmSend4bit(uint8_t resp);
 extern int EmSendCmdPar(uint8_t *resp, uint16_t respLen, uint8_t *par);
 extern int EmSendPrecompiledCmd(tag_response_info_t *response_info);
@@ -49,7 +48,7 @@ extern int EmSendPrecompiledCmd(tag_response_info_t *response_info);
 extern bool prepare_allocated_tag_modulation(tag_response_info_t *response_info, uint8_t **buffer, size_t *buffer_size);
 
 extern void iso14443a_setup(uint8_t fpga_minor_mode);
-extern int iso14_apdu(uint8_t *cmd, uint16_t cmd_len, void *data);
+extern int iso14_apdu(uint8_t *cmd, uint16_t cmd_len, bool send_chaining, void *data, uint8_t *res);
 extern int iso14443a_select_card(uint8_t *uid_ptr, iso14a_card_select_t *resp_data, uint32_t *cuid_ptr, bool anticollision, uint8_t num_cascades, bool no_rats);
 extern void iso14a_set_trigger(bool enable);
 extern void iso14a_set_timeout(uint32_t timeout);

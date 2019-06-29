@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <stdarg.h>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -51,7 +52,22 @@ int ukbhit(void)
   return ( error == 0 ? cnt : -1 );
 }
 
-#else
+char getch(void)
+{
+	char c;
+	int error;
+	struct termios Otty, Ntty;
+	if ( tcgetattr(STDIN_FILENO, &Otty) == -1 ) return -1;
+	Ntty = Otty;
+	Ntty.c_lflag &= ~ICANON; /* disable buffered i/o */
+	if (0 == (error = tcsetattr(STDIN_FILENO, TCSANOW, &Ntty))) {   // set new attributes
+		c = getchar();
+		error += tcsetattr(STDIN_FILENO, TCSANOW, &Otty);           // reset attributes
+	}
+	return ( error == 0 ? c : -1 );
+}
+
+#else // _WIN32
 
 #include <conio.h>
 int ukbhit(void) {
@@ -101,13 +117,52 @@ void AddLogCurrentDT(char *fileName) {
 	AddLogLine(fileName, "\nanticollision: ", buff);
 }
 
-void FillFileNameByUID(char *fileName, uint8_t * uid, char *ext, int byteCount) {
+void FillFileNameByUID(char *fileName, uint8_t *uid, char *ext, int byteCount) {
 	char * fnameptr = fileName;
-	memset(fileName, 0x00, 200);
 	
 	for (int j = 0; j < byteCount; j++, fnameptr += 2)
 		sprintf(fnameptr, "%02x", (unsigned int) uid[j]); 
 	sprintf(fnameptr, "%s", ext); 
+}
+
+// fill buffer from structure [{uint8_t data, size_t length},...]
+int FillBuffer(uint8_t *data, size_t maxDataLength, size_t *dataLength, ...) {
+	*dataLength = 0;
+	va_list valist;
+	va_start(valist, dataLength);
+	
+	uint8_t *vdata = NULL;
+	size_t vlength = 0;
+	do{
+		vdata = va_arg(valist, uint8_t *);
+		if (!vdata)
+			break;
+		
+		vlength = va_arg(valist, size_t);
+		if (*dataLength + vlength >  maxDataLength) {
+			va_end(valist);
+			return 1;
+		}
+		
+		memcpy(&data[*dataLength], vdata, vlength);
+		*dataLength += vlength;
+		
+	} while (vdata);
+	
+	va_end(valist);
+
+	return 0;
+}
+
+bool CheckStringIsHEXValue(const char *value) {
+	for (int i = 0; i < strlen(value); i++)
+		if (!isxdigit(value[i]))
+			return false;
+
+	if (strlen(value) % 2)
+		return false;
+	
+	return true;
 }
 
 void hex_to_buffer(const uint8_t *buf, const uint8_t *hex_data, const size_t hex_len, const size_t hex_max_len, 
@@ -139,7 +194,7 @@ void hex_to_buffer(const uint8_t *buf, const uint8_t *hex_data, const size_t hex
 // printing and converting functions
 
 char *sprint_hex(const uint8_t *data, const size_t len) {
-	static char buf[1025] = {0};
+	static char buf[4097] = {0};
 	
 	hex_to_buffer((uint8_t *)buf, data, len, sizeof(buf) - 1, 0, 1, false);
 
@@ -147,7 +202,7 @@ char *sprint_hex(const uint8_t *data, const size_t len) {
 }
 
 char *sprint_hex_inrow_ex(const uint8_t *data, const size_t len, const size_t min_str_len) {
-	static char buf[1025] = {0};
+	static char buf[4097] = {0};
 
 	hex_to_buffer((uint8_t *)buf, data, len, sizeof(buf) - 1, min_str_len, 0, false);
 
@@ -212,6 +267,10 @@ char *sprint_ascii_ex(const uint8_t *data, const size_t len, const size_t min_st
 	return buf;
 }
 
+char *sprint_ascii(const uint8_t *data, const size_t len) {
+    return sprint_ascii_ex(data, len, 0);
+}
+
 void num_to_bytes(uint64_t n, size_t len, uint8_t* dest)
 {
 	while (len--) {
@@ -263,22 +322,21 @@ uint32_t SwapBits(uint32_t value, int nrbits) {
 uint8_t *SwapEndian64(const uint8_t *src, const size_t len, const uint8_t blockSize){
 	static uint8_t buf[64];
 	memset(buf, 0x00, 64);
-	uint8_t *tmp = buf;
 	for (uint8_t block=0; block < (uint8_t)(len/blockSize); block++){
 		for (size_t i = 0; i < blockSize; i++){
-			tmp[i+(blockSize*block)] = src[(blockSize-1-i)+(blockSize*block)];
+			buf[i+(blockSize*block)] = src[(blockSize-1-i)+(blockSize*block)];
 		}
 	}
-	return tmp;
+	return buf;
 }
 
 //assumes little endian
-char * printBits(size_t const size, void const * const ptr)
+char *printBits(size_t const size, void const * const ptr)
 {
     unsigned char *b = (unsigned char*) ptr;	
     unsigned char byte;
 	static char buf[1024];
-	char * tmp = buf;
+	char *tmp = buf;
     int i, j;
 
     for (i=size-1;i>=0;i--)
@@ -294,7 +352,7 @@ char * printBits(size_t const size, void const * const ptr)
 	return buf;
 }
 
-char * printBitsPar(const uint8_t *b, size_t len) {
+char *printBitsPar(const uint8_t *b, size_t len) {
 	static char buf1[512] = {0};
 	static char buf2[512] = {0};
 	static char *buf;
@@ -459,7 +517,8 @@ int param_gethex(const char *line, int paramnum, uint8_t * data, int hexcnt)
 
 	return 0;
 }
-int param_gethex_ex(const char *line, int paramnum, uint8_t * data, int *hexcnt)
+
+int param_gethex_ex(const char *line, int paramnum, uint8_t *data, int *hexcnt)
 {
 	int bg, en, temp, i;
 
@@ -468,6 +527,8 @@ int param_gethex_ex(const char *line, int paramnum, uint8_t * data, int *hexcnt)
 	
 	if (param_getptr(line, &bg, &en, paramnum)) return 1;
 
+	if (en - bg + 1 > *hexcnt) return 1;
+	
 	*hexcnt = en - bg + 1;
 	if (*hexcnt % 2) //error if not complete hex bytes
 		return 1;

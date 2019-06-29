@@ -33,6 +33,7 @@ typedef struct {
     uint32_t asDwords[USB_CMD_DATA_SIZE/4];
   } d;
 } PACKED UsbCommand;
+
 // A struct used to send sample-configs over USB
 typedef struct{
 	uint8_t decimation;
@@ -40,6 +41,7 @@ typedef struct{
 	bool averaging;
 	int divisor;
 	int trigger_threshold;
+	int samples_to_skip;
 } sample_config;
 
 // For the bootloader
@@ -62,6 +64,9 @@ typedef struct{
 #define CMD_VERSION                                                       0x0107
 #define CMD_STATUS                                                        0x0108
 #define CMD_PING                                                          0x0109
+
+// controlling the ADC input multiplexer
+#define CMD_SET_ADC_MUX                                                   0x020F
 
 // RDV40,  Smart card operations
 #define CMD_SMART_RAW                                                     0x0140
@@ -86,7 +91,6 @@ typedef struct{
 #define CMD_HID_SIM_TAG                                                   0x020C
 #define CMD_SET_LF_DIVISOR                                                0x020D
 #define CMD_LF_SIMULATE_BIDIR                                             0x020E
-#define CMD_SET_ADC_MUX                                                   0x020F
 #define CMD_HID_CLONE_TAG                                                 0x0210
 #define CMD_EM410X_WRITE_TAG                                              0x0211
 #define CMD_INDALA_CLONE_TAG                                              0x0212
@@ -97,6 +101,7 @@ typedef struct{
 #define CMD_T55XX_RESET_READ                                              0x0216
 #define CMD_PCF7931_READ                                                  0x0217
 #define CMD_PCF7931_WRITE                                                 0x0222
+#define CMD_PCF7931_BRUTEFORCE                                            0x0227
 #define CMD_EM4X_READ_WORD                                                0x0218
 #define CMD_EM4X_WRITE_WORD                                               0x0219
 #define CMD_IO_DEMOD_FSK                                                  0x021A
@@ -111,9 +116,8 @@ typedef struct{
 #define CMD_VIKING_CLONE_TAG                                              0x0223
 #define CMD_T55XX_WAKEUP                                                  0x0224
 #define CMD_COTAG                                                         0x0225
-
-
-/* CMD_SET_ADC_MUX: ext1 is 0 for lopkd, 1 for loraw, 2 for hipkd, 3 for hiraw */
+#define CMD_PARADOX_CLONE_TAG                                             0x0226
+#define CMD_EM4X_PROTECT                                                  0x0228
 
 // For the 13.56 MHz tags
 #define CMD_ACQUIRE_RAW_ADC_SAMPLES_ISO_15693                             0x0300
@@ -122,7 +126,7 @@ typedef struct{
 #define CMD_ISO_14443B_COMMAND                                            0x0305
 #define CMD_READER_ISO_15693                                              0x0310
 #define CMD_SIMTAG_ISO_15693                                              0x0311
-#define CMD_RECORD_RAW_ADC_SAMPLES_ISO_15693                              0x0312
+#define CMD_SNOOP_ISO_15693                                               0x0312
 #define CMD_ISO_15693_COMMAND                                             0x0313
 #define CMD_ISO_15693_COMMAND_DONE                                        0x0314
 #define CMD_ISO_15693_FIND_AFI                                            0x0315
@@ -133,13 +137,12 @@ typedef struct{
 #define CMD_SNOOP_HITAG                                                   0x0370
 #define CMD_SIMULATE_HITAG                                                0x0371
 #define CMD_READER_HITAG                                                  0x0372
-
 #define CMD_SIMULATE_HITAG_S                                              0x0368
 #define CMD_TEST_HITAGS_TRACES                                            0x0367
 #define CMD_READ_HITAG_S                                                  0x0373
+#define CMD_READ_HITAG_S_BLK                                              0x0374
 #define CMD_WR_HITAG_S                                                    0x0375
 #define CMD_EMU_HITAG_S                                                   0x0376
-
 
 #define CMD_SIMULATE_TAG_ISO_14443B                                       0x0381
 #define CMD_SNOOP_ISO_14443B                                              0x0382
@@ -219,17 +222,17 @@ typedef struct{
 #define CMD_MIFARE_DESFIRE                                                0x072e
 
 #define CMD_HF_SNIFFER                                                    0x0800
+#define CMD_HF_PLOT                                                       0x0801
 
 #define CMD_UNKNOWN                                                       0xFFFF
 
 
 //Mifare simulation flags
-#define FLAG_INTERACTIVE      0x01
-#define FLAG_4B_UID_IN_DATA   0x02
-#define FLAG_7B_UID_IN_DATA   0x04
-#define FLAG_10B_UID_IN_DATA  0x08
-#define FLAG_NR_AR_ATTACK     0x10
-#define FLAG_RANDOM_NONCE     0x20
+#define FLAG_INTERACTIVE                (1<<0)
+#define FLAG_4B_UID_IN_DATA             (1<<1)
+#define FLAG_7B_UID_IN_DATA             (1<<2)
+#define FLAG_NR_AR_ATTACK               (1<<4)
+#define FLAG_RANDOM_NONCE               (1<<5)
 
 
 //Iclass reader flags
@@ -246,6 +249,10 @@ typedef struct{
 #define FLAG_TUNE_LF   1
 #define FLAG_TUNE_HF   2
 #define FLAG_TUNE_ALL  3
+
+// Hardware capabilities
+#define HAS_EXTRA_FLASH_MEM    (1 << 0)
+#define HAS_SMARTCARD_SLOT     (1 << 1)
 
 
 // CMD_DEVICE_INFO response packet has flags in arg[0], flag definitions:
