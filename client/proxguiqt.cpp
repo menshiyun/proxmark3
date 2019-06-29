@@ -26,12 +26,16 @@
 #include <string.h>
 #include "proxgui.h"
 #include <QtGui>
+
+extern "C" {
+#include "util_darwin.h"
+}
 //#include <ctime>
 
 bool g_useOverlays = false;
 int g_absVMax = 0;
-int startMax;
-int PageWidth;
+int startMax;  // Maximum offset in the graph (right side of graph)
+int PageWidth; // How many samples are currently visible on this 'page' / graph
 int unlockStart = 0;
 
 void ProxGuiQT::ShowGraphWindow(void)
@@ -60,7 +64,12 @@ void ProxGuiQT::_ShowGraphWindow(void)
 		return;
 
 	if (!plotwidget)
+	{
+#if defined(__MACH__) && defined(__APPLE__)
+		makeFocusable();
+#endif
 		plotwidget = new ProxWidget();
+	}
 
 	plotwidget->show();
 }
@@ -108,6 +117,11 @@ void ProxGuiQT::MainLoop()
 	//start proxmark thread after starting event loop
 	QTimer::singleShot(200, this, SLOT(_StartProxmarkThread()));
 
+#if defined(__MACH__) && defined(__APPLE__)
+	//Prevent the terminal from loosing focus during launch by making the client unfocusable
+	makeUnfocusable();
+#endif
+
 	plotapp->exec();
 }
 
@@ -120,8 +134,8 @@ ProxGuiQT::~ProxGuiQT(void)
 {
 	//if (plotwidget) {
 		//plotwidget->destroy(true,true);
-	//	delete plotwidget;
-	//	plotwidget = NULL;
+	//  delete plotwidget;
+	//  plotwidget = NULL;
 	//}
 	if (plotapp) {
 		plotapp->quit();
@@ -181,8 +195,7 @@ ProxWidget::ProxWidget(QWidget *parent, ProxGuiQT *master) : QWidget(parent)
 	this->master = master;
 	resize(800,500);
 
-	/** Setup the controller widget **/
-
+	// Setup the controller widget
 	controlWidget = new QWidget();
 	opsController = new Ui::Form();
 	opsController->setupUi(controlWidget);
@@ -204,23 +217,17 @@ ProxWidget::ProxWidget(QWidget *parent, ProxGuiQT *master) : QWidget(parent)
 	QObject::connect(opsController->horizontalSlider_dirthr_down, SIGNAL(valueChanged(int)), this, SLOT(vchange_dthr_down(int)));
 	QObject::connect(opsController->horizontalSlider_askedge, SIGNAL(valueChanged(int)), this, SLOT(vchange_askedge(int)));
 
-	controlWidget->show();
-
 	// Set up the plot widget, which does the actual plotting
-
 	plot = new Plot(this);
-	/*
-	QSlider* slider = new QSlider(Qt::Horizontal);
-	slider->setFocusPolicy(Qt::StrongFocus);
-	slider->setTickPosition(QSlider::TicksBothSides);
-	slider->setTickInterval(10);
-	slider->setSingleStep(1);
-	*/
 	QVBoxLayout *layout = new QVBoxLayout;
-	//layout->addWidget(slider);
 	layout->addWidget(plot);
 	setLayout(layout);
-	//printf("Proxwidget Constructor just set layout\r\n");
+	show(); // places the window on the screen.
+
+	// Move controller widget below plot
+	controlWidget->move(x(),y()+frameSize().height());
+	controlWidget->resize(size().width(), controlWidget->size().height());
+	controlWidget->show();
 }
 
 // not 100% sure what i need in this block
@@ -467,7 +474,7 @@ void Plot::plotGridLines(QPainter* painter,QRect r)
 	if ((PlotGridX > 0) && ((PlotGridX * GraphPixelsPerPoint) > 1)) {
 		for(i = (offset * GraphPixelsPerPoint); i < r.right(); i += grid_delta_x) {
 			painter->drawLine(r.left()+i, r.top(), r.left()+i, r.bottom());
-		} 
+		}
 	}
 	if (PlotGridY > 0) {
 		for(i = 0; yCoordOf(i,r,g_absVMax) > r.top(); i += grid_delta_y) {
@@ -502,8 +509,9 @@ void Plot::paintEvent(QPaintEvent *event)
 	if(CursorDPos > GraphTraceLen)
 		CursorDPos= 0;
 
-	QRect plotRect(WIDTH_AXES, 0, width()-WIDTH_AXES, height()-HEIGHT_INFO);
-	QRect infoRect(0, height()-HEIGHT_INFO, width(), HEIGHT_INFO);
+	QRect plotRect(WIDTH_AXES, 0, width() - WIDTH_AXES, height() - HEIGHT_INFO);
+	QRect infoRect(0, height() - HEIGHT_INFO, width(), HEIGHT_INFO);
+	PageWidth = plotRect.width() / GraphPixelsPerPoint;
 
 	//Grey background
 	painter.fillRect(rect(), QColor(60, 60, 60));
@@ -522,7 +530,7 @@ void Plot::paintEvent(QPaintEvent *event)
 
 	//Start painting graph
 	PlotGraph(GraphBuffer, GraphTraceLen,plotRect,infoRect,&painter,0);
-	if (showDemod && DemodBufferLen	> 8) {
+	if (showDemod && DemodBufferLen > 8) {
 		PlotDemod(DemodBuffer, DemodBufferLen,plotRect,infoRect,&painter,2,g_DemodStartIdx);
 	}
 	if (g_useOverlays) {
@@ -557,7 +565,7 @@ void Plot::paintEvent(QPaintEvent *event)
 	//Draw annotations
 	char str[200];
 	sprintf(str, "@%d  dt=%d [%2.2f] zoom=%2.2f  CursorAPos=%d  CursorBPos=%d  GridX=%d  GridY=%d (%s) GridXoffset=%d",
-			GraphStart,	CursorBPos - CursorAPos, (CursorBPos - CursorAPos)/CursorScaleFactor,
+			GraphStart, CursorBPos - CursorAPos, (CursorBPos - CursorAPos)/CursorScaleFactor,
 			GraphPixelsPerPoint,CursorAPos,CursorBPos,PlotGridXdefault,PlotGridYdefault,GridLocked?"Locked":"Unlocked",GridOffset);
 	painter.setPen(QColor(255, 255, 255));
 	painter.drawText(20, infoRect.bottom() - 3, str);
@@ -609,14 +617,14 @@ void Plot::mouseMoveEvent(QMouseEvent *event)
 
 void Plot::keyPressEvent(QKeyEvent *event)
 {
-	int	offset;
+	int offset; // Left/right movement offset (in sample size)
 
 	if(event->modifiers() & Qt::ShiftModifier) {
 		if (PlotGridX)
 			offset= PageWidth - (PageWidth % PlotGridX);
 		else
 			offset= PageWidth;
-	} else 
+	} else
 		if(event->modifiers() & Qt::ControlModifier)
 			offset= 1;
 		else
@@ -664,20 +672,22 @@ void Plot::keyPressEvent(QKeyEvent *event)
 		case Qt::Key_H:
 			puts("Plot Window Keystrokes:\n");
 			puts(" Key                      Action\n");
+			puts(" UP                       Zoom out");
 			puts(" DOWN                     Zoom in");
 			puts(" G                        Toggle grid display");
 			puts(" H                        Show help");
 			puts(" L                        Toggle lock grid relative to samples");
+			puts(" Q                        Hide window");
+			puts(" HOME                     Move to the start of the graph");
+			puts(" END                      Move to the end of the graph");
 			puts(" LEFT                     Move left");
 			puts(" <CTL>LEFT                Move left 1 sample");
 			puts(" <SHIFT>LEFT              Page left");
 			puts(" LEFT-MOUSE-CLICK         Set yellow cursor");
-			puts(" Q                        Hide window");
 			puts(" RIGHT                    Move right");
 			puts(" <CTL>RIGHT               Move right 1 sample");
 			puts(" <SHIFT>RIGHT             Page right");
 			puts(" RIGHT-MOUSE-CLICK        Set purple cursor");
-			puts(" UP                       Zoom out");
 			puts("");
 			puts("Use client window 'data help' for more plot commands\n");
 			break;
@@ -692,6 +702,14 @@ void Plot::keyPressEvent(QKeyEvent *event)
 
 		case Qt::Key_Q:
 			master->hide();
+			break;
+
+		case Qt::Key_Home:
+			GraphStart = 0;
+			break;
+
+		case Qt::Key_End:
+			GraphStart = startMax;
 			break;
 
 		default:

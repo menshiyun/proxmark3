@@ -29,6 +29,7 @@
 #include "whereami.h"
 #include "comms.h"
 
+
 void
 #ifdef __has_attribute
 #if __has_attribute(force_align_arg_pointer)
@@ -47,6 +48,7 @@ main_loop(char *script_cmds_file, char *script_cmd, bool usb_present) {
 	} else {
 		SetOffline(true);
 	}
+
 
 	// file with script
 	FILE *script_file = NULL;

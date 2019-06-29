@@ -13,6 +13,12 @@
 
 #include "common.h"
 
+#define MF_KEY_A 0
+#define MF_KEY_B 1
+
+#define MF_MAD1_SECTOR 0x00
+#define MF_MAD2_SECTOR 0x10
+
 //-----------------------------------------------------------------------------
 // ISO 14443A
 //-----------------------------------------------------------------------------
@@ -36,7 +42,8 @@ typedef enum ISO14A_COMMAND {
 	ISO14A_NO_SELECT =			(1 << 7),
 	ISO14A_TOPAZMODE =			(1 << 8),
 	ISO14A_NO_RATS =			(1 << 9),
-	ISO14A_CLEAR_TRACE =		(1 << 10)
+	ISO14A_SEND_CHAINING =      (1 << 10),
+	ISO14A_CLEAR_TRACE =		(1 << 11)
 } iso14a_command_t;
 
 typedef struct {

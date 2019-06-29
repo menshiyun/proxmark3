@@ -10,16 +10,17 @@
 // LEGIC RF simulation code
 //-----------------------------------------------------------------------------
 
+#include "legicrfsim.h"
+
 #include "proxmark3.h"
 #include "apps.h"
 #include "util.h"
 #include "string.h"
-
-#include "legicrfsim.h"
 #include "legic_prng.h"
 #include "legic.h"
 #include "crc.h"
 #include "usb_cdc.h"  // for usb_poll_validate_length
+#include "fpgaloader.h"
 
 static uint8_t* legic_mem;      /* card memory, used for sim */
 static legic_card_select_t card;/* metadata of currently selected card */
@@ -51,7 +52,7 @@ static uint32_t last_frame_end; /* ts of last bit of previews rx or tx frame */
 #define RWD_TIME_PAUSE        4 /* 18.9us */
 #define RWD_TIME_1           21 /* RWD_TIME_PAUSE 18.9us off + 80.2us on = 99.1us */
 #define RWD_TIME_0           13 /* RWD_TIME_PAUSE 18.9us off + 42.4us on = 61.3us */
-#define RWD_CMD_TIMEOUT      40 /* 40 * 99.1us (arbitrary value) */
+#define RWD_CMD_TIMEOUT     120 /* 120 * 99.1us (arbitrary value) */
 #define RWD_MIN_FRAME_LEN     6 /* Shortest frame is 6 bits */
 #define RWD_MAX_FRAME_LEN    23 /* Longest frame is 23 bits */
 

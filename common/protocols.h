@@ -105,44 +105,49 @@ NXP/Philips CUSTOM COMMANDS
 
 
 #define ISO14443A_CMD_REQA       0x26
-#define ISO14443A_CMD_READBLOCK  0x30
 #define ISO14443A_CMD_WUPA       0x52
 #define ISO14443A_CMD_ANTICOLL_OR_SELECT     0x93
 #define ISO14443A_CMD_ANTICOLL_OR_SELECT_2   0x95
 #define ISO14443A_CMD_ANTICOLL_OR_SELECT_3   0x97
-#define ISO14443A_CMD_WRITEBLOCK 0xA0 // or 0xA2 ?
 #define ISO14443A_CMD_HALT       0x50
 #define ISO14443A_CMD_RATS       0xE0
 
-#define MIFARE_AUTH_KEYA        0x60
-#define MIFARE_AUTH_KEYB        0x61
-#define MIFARE_MAGICWUPC1       0x40
-#define MIFARE_MAGICWUPC2       0x43
-#define MIFARE_MAGICWIPEC       0x41
-#define MIFARE_CMD_INC          0xC0
-#define MIFARE_CMD_DEC          0xC1
-#define MIFARE_CMD_RESTORE      0xC2
-#define MIFARE_CMD_TRANSFER     0xB0
+#define MIFARE_CMD_READBLOCK     0x30
+#define MIFARE_CMD_WRITEBLOCK    0xA0
+#define MIFARE_AUTH_KEYA         0x60
+#define MIFARE_AUTH_KEYB         0x61
+#define MIFARE_MAGICWUPC1        0x40
+#define MIFARE_MAGICWUPC2        0x43
+#define MIFARE_MAGICWIPEC        0x41
+#define MIFARE_CMD_INC           0xC0
+#define MIFARE_CMD_DEC           0xC1
+#define MIFARE_CMD_RESTORE       0xC2
+#define MIFARE_CMD_TRANSFER      0xB0
 
-#define MIFARE_EV1_PERSONAL_UID 0x40
-#define MIFARE_EV1_SETMODE      0x43
+#define MIFARE_EV1_PERSONAL_UID  0x40
+#define MIFARE_EV1_SETMODE       0x43
 
+#define MIFARE_ULC_WRITE         0xA2
+#define MIFARE_ULC_COMP_WRITE    MIFARE_CMD_WRITEBLOCK
+#define MIFARE_ULC_AUTH_1        0x1A
+#define MIFARE_ULC_AUTH_2        0xAF
 
-#define MIFARE_ULC_WRITE        0xA2
-//#define MIFARE_ULC__COMP_WRITE  0xA0
-#define MIFARE_ULC_AUTH_1       0x1A
-#define MIFARE_ULC_AUTH_2       0xAF
+#define MIFARE_ULEV1_AUTH        0x1B
+#define MIFARE_ULEV1_VERSION     0x60
+#define MIFARE_ULEV1_FASTREAD    0x3A
+#define MIFARE_ULEV1_WRITE       0xA2
+#define MIFARE_ULEV1_COMP_WRITE  MIFARE_CMD_WRITEBLOCK
+#define MIFARE_ULEV1_READ_CNT    0x39
+#define MIFARE_ULEV1_INCR_CNT    0xA5
+#define MIFARE_ULEV1_READSIG     0x3C
+#define MIFARE_ULEV1_CHECKTEAR   0x3E
+#define MIFARE_ULEV1_VCSL        0x4B
 
-#define MIFARE_ULEV1_AUTH       0x1B
-#define MIFARE_ULEV1_VERSION    0x60
-#define MIFARE_ULEV1_FASTREAD   0x3A
-//#define MIFARE_ULEV1_WRITE      0xA2
-//#define MIFARE_ULEV1_COMP_WRITE 0xA0
-#define MIFARE_ULEV1_READ_CNT   0x39
-#define MIFARE_ULEV1_INCR_CNT   0xA5
-#define MIFARE_ULEV1_READSIG    0x3C
-#define MIFARE_ULEV1_CHECKTEAR  0x3E
-#define MIFARE_ULEV1_VCSL       0x4B
+// mifare 4bit card answers
+#define CARD_ACK                 0x0A  // 1010 - ACK
+#define CARD_NACK_NA             0x04  // 0100 - NACK, not allowed (command not allowed)
+#define CARD_NACK_TR             0x05  // 0101 - NACK, transmission error
+
 
 /**
 06 00 = INITIATE
@@ -167,22 +172,50 @@ NXP/Philips CUSTOM COMMANDS
 #define ISO14443B_COMPLETION   0x0F
 #define ISO14443B_AUTHENTICATE 0x0A
 
-//First byte is 26
-#define ISO15693_INVENTORY     0x01
-#define ISO15693_STAYQUIET     0x02
-//First byte is 02
-#define ISO15693_READBLOCK            0x20
-#define ISO15693_WRITEBLOCK           0x21
-#define ISO15693_LOCKBLOCK            0x22
-#define ISO15693_READ_MULTI_BLOCK     0x23
-#define ISO15693_SELECT               0x25
-#define ISO15693_RESET_TO_READY       0x26
-#define ISO15693_WRITE_AFI            0x27
-#define ISO15693_LOCK_AFI             0x28
-#define ISO15693_WRITE_DSFID          0x29
-#define ISO15693_LOCK_DSFID           0x2A
-#define ISO15693_GET_SYSTEM_INFO      0x2B
-#define ISO15693_READ_MULTI_SECSTATUS 0x2C
+// ISO15693 COMMANDS
+#define ISO15693_INVENTORY                   0x01
+#define ISO15693_STAYQUIET                   0x02
+#define ISO15693_READBLOCK                   0x20
+#define ISO15693_WRITEBLOCK                  0x21
+#define ISO15693_LOCKBLOCK                   0x22
+#define ISO15693_READ_MULTI_BLOCK            0x23
+#define ISO15693_SELECT                      0x25
+#define ISO15693_RESET_TO_READY              0x26
+#define ISO15693_WRITE_AFI                   0x27
+#define ISO15693_LOCK_AFI                    0x28
+#define ISO15693_WRITE_DSFID                 0x29
+#define ISO15693_LOCK_DSFID                  0x2A
+#define ISO15693_GET_SYSTEM_INFO             0x2B
+#define ISO15693_READ_MULTI_SECSTATUS        0x2C
+
+// ISO15693 REQUEST FLAGS
+#define ISO15693_REQ_SUBCARRIER_TWO          (1<<0)
+#define ISO15693_REQ_DATARATE_HIGH           (1<<1)
+#define ISO15693_REQ_INVENTORY               (1<<2)
+#define ISO15693_REQ_PROTOCOL_EXT            (1<<3) // RFU
+#define ISO15693_REQ_OPTION                  (1<<6) // Command specific option selector
+// when REQ_INVENTORY is not set
+#define ISO15693_REQ_SELECT                  (1<<4) // only selected cards response
+#define ISO15693_REQ_ADDRESS                 (1<<5) // this req contains an address
+// when REQ_INVENTORY is set
+#define ISO15693_REQINV_AFI                  (1<<4) // AFI Field is present
+#define ISO15693_REQINV_SLOT1                (1<<5) // 1 Slot     (16 slots if not set)
+
+// ISO15693 RESPONSE FLAGS
+#define ISO15693_RES_ERROR                   (1<<0)
+#define ISO15693_RES_EXT                     (1<<3) // Protocol Extention	
+
+// ISO15693 RESPONSE ERROR CODES
+#define ISO15693_NOERROR                     0x00
+#define ISO15693_ERROR_CMD_NOT_SUP           0x01 // Command not supported
+#define ISO15693_ERROR_CMD_NOT_REC           0x02 // Command not recognized (eg. parameter error)
+#define ISO15693_ERROR_CMD_OPTION            0x03 // Command option not supported
+#define ISO15693_ERROR_GENERIC               0x0F // No additional Info about this error
+#define ISO15693_ERROR_BLOCK_UNAVAILABLE     0x10
+#define ISO15693_ERROR_BLOCK_LOCKED_ALREADY  0x11 // cannot lock again
+#define ISO15693_ERROR_BLOCK_LOCKED          0x12 // cannot be changed
+#define ISO15693_ERROR_BLOCK_WRITE           0x13 // Writing was unsuccessful
+#define ISO15693_ERROR_BLOCL_WRITELOCK       0x14 // Locking was unsuccessful
 
 
 // Topaz command set:
@@ -206,6 +239,9 @@ NXP/Philips CUSTOM COMMANDS
 #define TOPAZ         3
 #define PROTO_MIFARE  4
 #define ISO_7816_4    5
+#define ISO_15693     6
+#define ISO_14443_4   7
+
 
 //-- Picopass fuses
 #define FUSE_FPERS   0x80
@@ -218,25 +254,29 @@ NXP/Philips CUSTOM COMMANDS
 #define FUSE_RA      0x01
 
 // ISO 7816-4 Basic interindustry commands. For command APDU's.
-#define ISO7816_READ_BINARY              0xB0
-#define ISO7816_WRITE_BINARY             0xD0
-#define ISO7816_UPDATE_BINARY            0xD6
 #define ISO7816_ERASE_BINARY             0x0E
-#define ISO7816_READ_RECORDS             0xB2
-#define ISO7816_WRITE_RECORDS            0xD2
-#define ISO7816_APPEND_RECORD            0xE2
-#define ISO7816_UPDATE_RECORD            0xDC
-#define ISO7816_GET_DATA                 0xCA
-#define ISO7816_PUT_DATA                 0xDA
-#define ISO7816_SELECT_FILE              0xA4
 #define ISO7816_VERIFY                   0x20
-#define ISO7816_INTERNAL_AUTHENTICATION  0x88
-#define ISO7816_EXTERNAL_AUTHENTICATION  0x82
-#define ISO7816_GET_CHALLENGE            0xB4
 #define ISO7816_MANAGE_CHANNEL           0x70
+#define ISO7816_EXTERNAL_AUTHENTICATE    0x82
+#define ISO7816_GET_CHALLENGE            0x84
+#define ISO7816_INTERNAL_AUTHENTICATE    0x88
+#define ISO7816_SELECT_FILE              0xA4
+#define ISO7816_GET_PROCESSING_OPTIONS   0xA8
+#define ISO7816_READ_BINARY              0xB0
+#define ISO7816_READ_RECORDS             0xB2
+#define ISO7816_GET_RESPONSE             0xC0
+#define ISO7816_ENVELOPE                 0xC2
+#define ISO7816_GET_DATA                 0xCA
+#define ISO7816_WRITE_BINARY             0xD0
+#define ISO7816_WRITE_RECORD             0xD2
+#define ISO7816_UPDATE_BINARY            0xD6
+#define ISO7816_PUT_DATA                 0xDA
+#define ISO7816_UPDATE_DATA              0xDC
+#define ISO7816_APPEND_RECORD            0xE2
 // ISO7816-4	For response APDU's
 #define ISO7816_OK                       0x9000
 //	6x xx = ERROR
+#define ISO7816_MAX_FRAME_SIZE           261
 
 
 
