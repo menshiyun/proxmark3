@@ -13,6 +13,7 @@
 #ifndef __ISO14443A_H
 #define __ISO14443A_H
 
+#include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "usb_cmd.h"
@@ -31,7 +32,7 @@ extern void GetParity(const uint8_t *pbtCmd, uint16_t len, uint8_t *par);
 extern void AppendCrc14443a(uint8_t *data, int len);
 
 extern void RAMFUNC SnoopIso14443a(uint8_t param);
-extern void SimulateIso14443aTag(int tagType, int uid_1st, int uid_2nd, byte_t *data);
+extern void SimulateIso14443aTag(int tagType, int uid_1st, int uid_2nd, uint8_t *data);
 extern void ReaderIso14443a(UsbCommand *c);
 extern void ReaderTransmit(uint8_t *frame, uint16_t len, uint32_t *timing);
 extern void ReaderTransmitBitsPar(uint8_t *frame, uint16_t bits, uint8_t *par, uint32_t *timing);
@@ -52,4 +53,5 @@ extern int iso14_apdu(uint8_t *cmd, uint16_t cmd_len, bool send_chaining, void *
 extern int iso14443a_select_card(uint8_t *uid_ptr, iso14a_card_select_t *resp_data, uint32_t *cuid_ptr, bool anticollision, uint8_t num_cascades, bool no_rats);
 extern void iso14a_set_trigger(bool enable);
 extern void iso14a_set_timeout(uint32_t timeout);
+extern uint32_t iso14a_get_timeout(void);
 #endif /* __ISO14443A_H */

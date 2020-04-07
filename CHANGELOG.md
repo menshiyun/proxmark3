@@ -14,8 +14,13 @@ This project uses the changelog in accordance with [keepchangelog](http://keepac
 - AC-Mode decoding for HitagS
 - Wrong UID at HitagS simulation
 - `hf 15 sim` now works as expected (piwi)
-
+- `hf mf chk t` save to emulator memory now works as expected (mwalker)
+- Fix `hf mf sim` - wrong access rights to write key B in trailer (@McEloff)
+- allow files > 512Bytes in 'hf iclass eload' (@Sherhannn79)
+- `hf mf nested` now works with fixed nonce tags too (uzlonewolf, piwi)
+ 
 ### Added
+- Added to `hf 14a apdu` print apdu and compose apdu (@merlokk)
 - Added `hf 15 csetuid` - set UID on ISO-15693 Magic tags (t0m4)
 - Added `lf config s xxxx` option to allow skipping x samples before capture (marshmellow)
 - Added `lf em 4x05protect` to support changing protection blocks on em4x05 chips (marshmellow)
@@ -27,7 +32,7 @@ This project uses the changelog in accordance with [keepchangelog](http://keepac
 - Added `lf hitag reader 04` - read block (instead of pages) 
 - Added `hf fido` `assert` and `make` commands from fido2 protocol (authenticatorMakeCredential and authenticatorGetAssertion) (Merlok)
 - Added `lf paradox clone` to clone a Paradox card
-- Added `emv` commmands working for both contactless and smart cards (Merlok)
+- Added `emv` commands working for both contactless and smart cards (Merlok)
 - Added `hf 15 snoop` (piwi)
 - Added support for standard USB Smartcard Readers (piwi)
 - Added `hf plot` (piwi)
@@ -38,6 +43,8 @@ This project uses the changelog in accordance with [keepchangelog](http://keepac
 - Added Home (Pos1) and End key bindings to the plot GUI (based on @mcd1992)
 - Added downlink reference mode option r <mode> [ 0 - (or missing) default/fixed bit, 1 - long leading, 2 - leading 0 and 3 - 1 of 4 ] to `lf t55xx detect`, `lf t55xx read`, `lf t55xx write`, and `lf t55xx bruteforce`
 - Added special option `r 4` to bruteforce, to try all downlink modes (0,1,2 and 3) for each password
+- `hf mfu info` now checks the NXP Originality Signature if availabe (piwi)
+- Added `hf mf personalize` to personalize the UID option of Mifare Classic EV1 cards (piwi)
 
 
 ## [v3.1.0][2018-10-10]
