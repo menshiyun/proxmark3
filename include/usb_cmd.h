@@ -10,13 +10,13 @@
 // own protocol.
 //-----------------------------------------------------------------------------
 
-#ifndef __USB_CMD_H
-#define __USB_CMD_H
+#ifndef USB_CMD_H__
+#define USB_CMD_H__
+
 #ifdef _MSC_VER
 typedef DWORD uint32_t;
 typedef BYTE uint8_t;
 #define PACKED
-// stuff
 #else
 #include <stdint.h>
 #include <stdbool.h>
@@ -25,17 +25,29 @@ typedef BYTE uint8_t;
 
 #define USB_CMD_DATA_SIZE 512
 
+// the packets sent from client to PM3
 typedef struct {
-  uint64_t cmd;
-  uint64_t arg[3];
-  union {
-    uint8_t  asBytes[USB_CMD_DATA_SIZE];
-    uint32_t asDwords[USB_CMD_DATA_SIZE/4];
-  } d;
+	uint64_t cmd;
+	uint64_t arg[3];
+	union {
+		uint8_t  asBytes[USB_CMD_DATA_SIZE];
+		uint32_t asDwords[USB_CMD_DATA_SIZE/4];
+	} d;
 } PACKED UsbCommand;
 
+// the packets sent from PM3 to client (a smaller version of UsbCommand)
+typedef struct {
+	uint16_t cmd;
+	uint16_t datalen;
+	uint32_t arg[3];
+	union {
+		uint8_t  asBytes[USB_CMD_DATA_SIZE];
+		uint32_t asDwords[USB_CMD_DATA_SIZE/4];
+	} d;
+} PACKED UsbResponse;
+
 // A struct used to send sample-configs over USB
-typedef struct{
+typedef struct {
 	uint8_t decimation;
 	uint8_t bits_per_sample;
 	bool averaging;
@@ -43,6 +55,7 @@ typedef struct{
 	int trigger_threshold;
 	int samples_to_skip;
 } sample_config;
+
 
 // For the bootloader
 #define CMD_DEVICE_INFO                                                   0x0000
@@ -156,17 +169,16 @@ typedef struct{
 #define CMD_EPA_PACE_COLLECT_NONCE                                        0x038A
 #define CMD_EPA_PACE_REPLAY                                               0x038B
 
-#define CMD_ICLASS_READCHECK                                              0x038F
 #define CMD_ICLASS_CLONE                                                  0x0390
 #define CMD_ICLASS_DUMP                                                   0x0391
 #define CMD_SNOOP_ICLASS                                                  0x0392
 #define CMD_SIMULATE_TAG_ICLASS                                           0x0393
 #define CMD_READER_ICLASS                                                 0x0394
-#define CMD_READER_ICLASS_REPLAY                                          0x0395
 #define CMD_ICLASS_READBLOCK                                              0x0396
 #define CMD_ICLASS_WRITEBLOCK                                             0x0397
 #define CMD_ICLASS_EML_MEMSET                                             0x0398
-#define CMD_ICLASS_AUTHENTICATION                                         0x0399
+#define CMD_ICLASS_CHECK                                                  0x0399
+#define CMD_ICLASS_READCHECK                                              0x039A
 
 // For measurements of the antenna tuning
 #define CMD_MEASURE_ANTENNA_TUNING                                        0x0400
@@ -197,19 +209,19 @@ typedef struct{
 #define CMD_MIFARE_ACQUIRE_ENCRYPTED_NONCES                               0x0613
 
 #define CMD_MIFARE_READBL                                                 0x0620
-#define CMD_MIFAREU_READBL                                                0x0720
 #define CMD_MIFARE_READSC                                                 0x0621
-#define CMD_MIFAREU_READCARD                                              0x0721
 #define CMD_MIFARE_WRITEBL                                                0x0622
+#define CMD_MIFARE_CHKKEYS                                                0x0623
+#define CMD_MIFARE_PERSONALIZE_UID                                        0x0624
+#define CMD_MIFARE_SNIFFER                                                0x0630
+
+//ultralightC
+#define CMD_MIFAREU_READBL                                                0x0720
+#define CMD_MIFAREU_READCARD                                              0x0721
 #define CMD_MIFAREU_WRITEBL                                               0x0722
 #define CMD_MIFAREU_WRITEBL_COMPAT                                        0x0723
-
-#define CMD_MIFARE_CHKKEYS                                                0x0623
-
-#define CMD_MIFARE_SNIFFER                                                0x0630
-//ultralightC
 #define CMD_MIFAREUC_AUTH                                                 0x0724
-//0x0725 and 0x0726 no longer used 
+//0x0725 and 0x0726 no longer used
 #define CMD_MIFAREUC_SETPWD                                               0x0727
 
 
@@ -225,28 +237,38 @@ typedef struct{
 #define CMD_HF_SNIFFER                                                    0x0800
 #define CMD_HF_PLOT                                                       0x0801
 
+#define CMD_VARIABLE_SIZE_FLAG                                            0x8000
 #define CMD_UNKNOWN                                                       0xFFFF
 
 
-//Mifare simulation flags
-#define FLAG_INTERACTIVE                (1<<0)
-#define FLAG_4B_UID_IN_DATA             (1<<1)
-#define FLAG_7B_UID_IN_DATA             (1<<2)
-#define FLAG_NR_AR_ATTACK               (1<<4)
-#define FLAG_RANDOM_NONCE               (1<<5)
+// Mifare simulation flags
+#define FLAG_INTERACTIVE                 (1<<0)
+#define FLAG_4B_UID_IN_DATA              (1<<1)
+#define FLAG_7B_UID_IN_DATA              (1<<2)
+#define FLAG_NR_AR_ATTACK                (1<<4)
+#define FLAG_RANDOM_NONCE                (1<<5)
 
 
-//Iclass reader flags
-#define FLAG_ICLASS_READER_ONLY_ONCE    0x01
-#define FLAG_ICLASS_READER_CC           0x02
-#define FLAG_ICLASS_READER_CSN          0x04
-#define FLAG_ICLASS_READER_CONF         0x08
-#define FLAG_ICLASS_READER_AA           0x10
-#define FLAG_ICLASS_READER_ONE_TRY      0x20
-#define FLAG_ICLASS_READER_CEDITKEY     0x40
+// iCLASS reader flags
+#define FLAG_ICLASS_READER_INIT          (1<<0)
+#define FLAG_ICLASS_READER_CC            (1<<1)
+#define FLAG_ICLASS_READER_CSN           (1<<2)
+#define FLAG_ICLASS_READER_CONF          (1<<3)
+#define FLAG_ICLASS_READER_AA            (1<<4)
+#define FLAG_ICLASS_READER_CREDITKEY     (1<<5)
+#define FLAG_ICLASS_READER_CLEARTRACE    (1<<6)
 
 
-//hw tune args
+// iCLASS simulation modes
+#define ICLASS_SIM_MODE_CSN                   0
+#define ICLASS_SIM_MODE_CSN_DEFAULT           1
+#define ICLASS_SIM_MODE_READER_ATTACK         2
+#define ICLASS_SIM_MODE_FULL                  3
+#define ICLASS_SIM_MODE_READER_ATTACK_KEYROLL 4
+#define ICLASS_SIM_MODE_EXIT_AFTER_MAC        5  // note: device internal only
+
+
+// hw tune args
 #define FLAG_TUNE_LF   1
 #define FLAG_TUNE_HF   2
 #define FLAG_TUNE_ALL  3
@@ -258,19 +280,19 @@ typedef struct{
 
 // CMD_DEVICE_INFO response packet has flags in arg[0], flag definitions:
 /* Whether a bootloader that understands the common_area is present */
-#define DEVICE_INFO_FLAG_BOOTROM_PRESENT         	(1<<0)
+#define DEVICE_INFO_FLAG_BOOTROM_PRESENT            (1<<0)
 
 /* Whether a osimage that understands the common_area is present */
-#define DEVICE_INFO_FLAG_OSIMAGE_PRESENT         	(1<<1)
+#define DEVICE_INFO_FLAG_OSIMAGE_PRESENT            (1<<1)
 
 /* Set if the bootloader is currently executing */
-#define DEVICE_INFO_FLAG_CURRENT_MODE_BOOTROM    	(1<<2)
+#define DEVICE_INFO_FLAG_CURRENT_MODE_BOOTROM       (1<<2)
 
 /* Set if the OS is currently executing */
-#define DEVICE_INFO_FLAG_CURRENT_MODE_OS         	(1<<3)
+#define DEVICE_INFO_FLAG_CURRENT_MODE_OS            (1<<3)
 
 /* Set if this device understands the extend start flash command */
-#define DEVICE_INFO_FLAG_UNDERSTANDS_START_FLASH 	(1<<4)
+#define DEVICE_INFO_FLAG_UNDERSTANDS_START_FLASH    (1<<4)
 
 /* CMD_START_FLASH may have three arguments: start of area to flash,
    end of area to flash, optional magic.

@@ -50,7 +50,7 @@ int CmdHFSearch(const char *Cmd){
 		PrintAndLog("\nValid ISO14443A Tag Found - Quiting Search\n");
 		return ans;
 	}
-	ans = HFiClassReader("", false, false);
+	ans = HFiClassReader(false, false);
 	if (ans) {
 		PrintAndLog("\nValid iClass Tag (or PicoPass Tag) Found - Quiting Search\n");
 		return ans;
@@ -61,7 +61,7 @@ int CmdHFSearch(const char *Cmd){
 		return ans;
 	}
 	//14b is longest test currently (and rarest chip type) ... put last
-	ans = HF14BInfo(false);
+	ans = infoHF14B(false);
 	if (ans) {
 		PrintAndLog("\nValid ISO14443B Tag Found - Quiting Search\n");
 		return ans;

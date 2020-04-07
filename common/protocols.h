@@ -1,6 +1,9 @@
 #ifndef PROTOCOLS_H
 #define PROTOCOLS_H
 
+#include <stdint.h>
+
+
 //The following data is taken from http://www.proxmark.org/forum/viewtopic.php?pid=13501#p13501
 /*
 ISO14443A (usually NFC tags)
@@ -96,7 +99,8 @@ NXP/Philips CUSTOM COMMANDS
 #define ICLASS_CMD_PAGESEL          0x84
 #define ICLASS_CMD_READCHECK_KD     0x88
 #define ICLASS_CMD_READCHECK_KC     0x18
-#define ICLASS_CMD_CHECK            0x05
+#define ICLASS_CMD_CHECK_KC         0x95
+#define ICLASS_CMD_CHECK_KD         0x05
 #define ICLASS_CMD_DETECT           0x0F
 #define ICLASS_CMD_HALT             0x00
 #define ICLASS_CMD_UPDATE           0x87
@@ -125,6 +129,10 @@ NXP/Philips CUSTOM COMMANDS
 #define MIFARE_CMD_TRANSFER      0xB0
 
 #define MIFARE_EV1_PERSONAL_UID  0x40
+#define MIFARE_EV1_UIDF0         0x00
+#define MIFARE_EV1_UIDF1         0x40
+#define MIFARE_EV1_UIDF2         0x20
+#define MIFARE_EV1_UIDF3         0x60
 #define MIFARE_EV1_SETMODE       0x43
 
 #define MIFARE_ULC_WRITE         0xA2
@@ -179,6 +187,7 @@ NXP/Philips CUSTOM COMMANDS
 #define ISO15693_WRITEBLOCK                  0x21
 #define ISO15693_LOCKBLOCK                   0x22
 #define ISO15693_READ_MULTI_BLOCK            0x23
+#define ISO15693_WRITE_MULTI_BLOCK           0x24
 #define ISO15693_SELECT                      0x25
 #define ISO15693_RESET_TO_READY              0x26
 #define ISO15693_WRITE_AFI                   0x27
@@ -232,6 +241,26 @@ NXP/Philips CUSTOM COMMANDS
 #define TOPAZ_WRITE_E8					0x54	// Write-with-erase (eight bytes)
 #define TOPAZ_WRITE_NE8					0x1B	// Write-no-erase (eight bytes)
 
+// HITAG1 commands
+#define HITAG1_SET_CCNEW                0xC2    // left 5 bits only
+#define HITAG1_READ_ID                  0x00    // not a real command, consists of 5 bits length, <length> bits partial SN, 8 bits CRC
+#define HITAG1_SELECT                   0x00    // left 5 bits only, followed by 32 bits SN and 8 bits CRC
+#define HITAG1_WRPPAGE                  0x80    // left 4 bits only, followed by 8 bits page and 8 bits CRC
+#define HITAG1_WRPBLK                   0x90    // left 4 bits only, followed by 8 bits block and 8 bits CRC
+#define HITAG1_WRCPAGE                  0xA0    // left 4 bits only, followed by 8 bits page or key information and 8 bits CRC
+#define HITAG1_WRCBLK                   0xB0    // left 4 bits only, followed by 8 bits block and 8 bits CRC
+#define HITAG1_RDPPAGE                  0xC0    // left 4 bits only, followed by 8 bits page and 8 bits CRC
+#define HITAG1_RDPBLK                   0xD0    // left 4 bits only, followed by 8 bits block and 8 bits CRC
+#define HITAG1_RDCPAGE                  0xE0    // left 4 bits only, followed by 8 bits page and 8 bits CRC
+#define HITAG1_RDCBLK                   0xF0    // left 4 bits only, followed by 8 bits block and 8 bits CRC
+#define HITAG1_HALT                     0x70    // left 4 bits only, followed by 8 bits (dummy) page and 8 bits CRC
+
+// HITAG2 commands
+#define HITAG2_START_AUTH               0xC0    // left 5 bits only
+#define HITAG2_READ_PAGE                0xC0    // page number in bits 5 to 3, page number inverted in bit 0 and following 2 bits
+#define HITAG2_READ_PAGE_INVERTED       0x44    // page number in bits 5 to 3, page number inverted in bit 0 and following 2 bits
+#define HITAG2_WRITE_PAGE               0x82    // page number in bits 5 to 3, page number inverted in bit 0 and following 2 bits
+#define HITAG2_HALT                     0x00    // left 5 bits only
 
 #define ISO_14443A    0
 #define ICLASS        1
@@ -278,10 +307,6 @@ NXP/Philips CUSTOM COMMANDS
 //	6x xx = ERROR
 #define ISO7816_MAX_FRAME_SIZE           261
 
-
-
-void printIclassDumpInfo(uint8_t* iclass_dump);
-void getMemConfig(uint8_t mem_cfg, uint8_t chip_cfg, uint8_t *max_blk, uint8_t *app_areas, uint8_t *kb);
 
 /* T55x7 configuration register definitions */
 #define T55x7_POR_DELAY             0x00000001
